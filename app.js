@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    BUSINESS SCHOOL AMANAT — APP LOGIC v3.1
    ============================================================ */
 
@@ -6,27 +6,27 @@
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbyyEJYUv_Ked-_QMgIZxNLZIECP-b66voqc8N3WkdcU7qgUHmeHOTmDhGuhWaAiRYzD/exec';
 const ADMIN_PASSWORD   = 'N20020216$$';
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
 // ══════════════════════════════ STATE ══════════════════════════════
-let lang              = 'ru';
-let currentUser       = null;
-let gsSheetId         = localStorage.getItem('gs_sheet_id') || SHEET_ID_DEFAULT;
-let courses           = [];
-let currentCourseIdx  = null;
+let lang               = 'ru';
+let currentUser        = null;
+let gsSheetId          = localStorage.getItem('gs_sheet_id') || SHEET_ID_DEFAULT;
+let courses            = [];
+let currentCourseIdx   = null;
 let currentLessonIndex = 0;
-let watchedLessons    = JSON.parse(localStorage.getItem('watched_lessons') || '{}');
-let currentTheme      = localStorage.getItem('theme') || 'dark';
-let lessonSearchQuery = '';
-let courseSearchQuery = '';
-let currentYtId       = null;
-let ytStartTime       = 0;
-let tapTimer          = null;
-let logoClickCount    = 0;
-let logoClickTimer    = null;
+let watchedLessons     = JSON.parse(localStorage.getItem('watched_lessons') || '{}');
+let currentTheme       = localStorage.getItem('theme') || 'dark';
+let lessonSearchQuery  = '';
+let courseSearchQuery  = '';
+let currentYtId        = null;
+let ytStartTime        = 0;
+let tapTimer           = null;
+let logoClickCount     = 0;
+let logoClickTimer     = null;
 
-// Debounce timers
 let filterCoursesTimer = null;
 let filterLessonsTimer = null;
 
@@ -121,35 +121,30 @@ const T = {
   }
 };
 
-const t = k => (T[lang] && T[lang][k]) ? T[lang][k] : k;
-const $  = id => document.getElementById(id);
+const t       = k => (T[lang] && T[lang][k]) ? T[lang][k] : k;
+const $       = id => document.getElementById(id);
 const setText = (id, v) => { const e=$(id); if(e) e.textContent = v; };
 const setHtml = (id, v) => { const e=$(id); if(e) e.innerHTML = v; };
 const setHref = (id, url) => { const e=$(id); if(e && url) e.href = url; };
 const sleep   = ms => new Promise(r => setTimeout(r, ms));
-
 
 // ══════════════════════════════ CURSOR ════════════════════════════
 (function initCursor() {
   if (window.matchMedia('(hover: none)').matches) return;
   const cur = $('cursor'), fol = $('cursor-follower');
   if (!cur || !fol) return;
-
   document.body.classList.add('cursor-active');
   let mx = 0, my = 0, fx = 0, fy = 0;
-
   document.addEventListener('mousemove', e => {
     mx = e.clientX; my = e.clientY;
     cur.style.transform = `translate(${mx - 4}px, ${my - 4}px)`;
   });
-
   (function animFol() {
     fx += (mx - fx - 18) * 0.14;
     fy += (my - fy - 18) * 0.14;
     fol.style.transform = `translate(${fx}px, ${fy}px)`;
     requestAnimationFrame(animFol);
   })();
-
   document.addEventListener('mouseover', e => {
     const el = e.target;
     const hoverable = el.closest('a, button, [role="button"], .clickable, .platform-card, .action-card');
@@ -186,57 +181,48 @@ function setLang(l) {
 
 // ══════════════════════════════ APPLY TEXTS ═══════════════════════
 function applyTexts() {
-  setText('eyebrow-text',  t('eyebrow'));
-  setHtml('login-title',   t('loginTitle').replace('\n','<br>'));
-  setText('login-subtitle',t('loginSub'));
-  setText('login-hint-text', t('loginHint'));
-  setText('label-name',    t('labelName'));
-  setText('label-iin',     t('labelIin'));
-  setText('label-phone',   t('labelPhone'));
-  setText('btn-text',      t('btnText'));
-  setText('logout-label',  t('logout'));
-  setHtml('tg-note',       t('tgNote').replace('__TG__', tgUrl || '#'));
-  setHtml('hero-badge',    `<span class="badge-pulse"></span>${t('heroBadge')}`);
-  setHtml('hero-h',        t('heroH'));
-  setText('hero-sub',      t('heroSub'));
-  setText('act-ff-title',  t('actFfTitle'));
-  setText('act-ff-desc',   t('actFfDesc'));
-  setText('act-gold-title',t('actGoldTitle'));
-  setText('act-gold-desc', t('actGoldDesc'));
-  setText('act-wa-title',  t('actWaTitle'));
-  setText('act-wa-desc',   t('actWaDesc'));
-  setText('act-tg-title',  t('actTgTitle'));
-  setText('act-tg-desc',   t('actTgDesc'));
-  setText('plat-title',    t('platTitle'));
-  setText('fb-title',      t('fbTitle'));
-  setText('fb-desc',       t('fbDesc'));
-  setText('wa-btn-text',   t('waBtnText'));
-  setText('tg-btn-text',   t('tgBtnText'));
-  setText('prev-label',    t('prev'));
-  setText('next-label',    t('next'));
-  setText('mps-title',     t('progressCourse'));
+  setText('eyebrow-text',     t('eyebrow'));
+  setHtml('login-title',      t('loginTitle').replace('\n','<br>'));
+  setText('login-subtitle',   t('loginSub'));
+  setText('login-hint-text',  t('loginHint'));
+  setText('label-name',       t('labelName'));
+  setText('label-iin',        t('labelIin'));
+  setText('label-phone',      t('labelPhone'));
+  setText('btn-text',         t('btnText'));
+  setText('logout-label',     t('logout'));
+  setHtml('tg-note',          t('tgNote').replace('__TG__', tgUrl || '#'));
+  setHtml('hero-badge',       `<span class="badge-pulse"></span>${t('heroBadge')}`);
+  setHtml('hero-h',           t('heroH'));
+  setText('hero-sub',         t('heroSub'));
+  setText('act-ff-title',     t('actFfTitle'));
+  setText('act-ff-desc',      t('actFfDesc'));
+  setText('act-gold-title',   t('actGoldTitle'));
+  setText('act-gold-desc',    t('actGoldDesc'));
+  setText('act-wa-title',     t('actWaTitle'));
+  setText('act-wa-desc',      t('actWaDesc'));
+  setText('act-tg-title',     t('actTgTitle'));
+  setText('act-tg-desc',      t('actTgDesc'));
+  setText('plat-title',       t('platTitle'));
+  setText('fb-title',         t('fbTitle'));
+  setText('fb-desc',          t('fbDesc'));
+  setText('wa-btn-text',      t('waBtnText'));
+  setText('tg-btn-text',      t('tgBtnText'));
+  setText('prev-label',       t('prev'));
+  setText('next-label',       t('next'));
+  setText('mps-title',        t('progressCourse'));
   setText('completion-title', t('completionTitle'));
-  setText('completion-sub', t('completionSub'));
-  setText('img-dl-text',   t('imgDownload'));
-  setText('img-open-text', t('imgOpenOrig'));
-  setText('mnav-courses',  t('mnavCourses'));
-  setText('mnav-cat',      t('mnavCat'));
-  setText('mnav-help',     t('mnavHelp'));
+  setText('completion-sub',   t('completionSub'));
+  setText('img-dl-text',      t('imgDownload'));
+  setText('img-open-text',    t('imgOpenOrig'));
+  setText('mnav-courses',     t('mnavCourses'));
+  setText('mnav-cat',         t('mnavCat'));
+  setText('mnav-help',        t('mnavHelp'));
   setText('user-status-text', t('statusText'));
-
   const ls = $('lesson-search'); if(ls) ls.placeholder = t('searchLessons');
   const cs = $('course-search'); if(cs) cs.placeholder = t('coursesSearch');
   if (currentUser) setText('user-name-badge', t('hello') + ' ' + currentUser);
-
-  // deco cards lang
-  document.querySelectorAll('.deco-lbl').forEach(el => {
-    const v = el.dataset[lang];
-    if (v) el.textContent = v;
-  });
-  document.querySelectorAll('.hstat-lbl').forEach(el => {
-    const v = el.dataset[lang];
-    if (v) el.textContent = v;
-  });
+  document.querySelectorAll('.deco-lbl').forEach(el => { const v = el.dataset[lang]; if (v) el.textContent = v; });
+  document.querySelectorAll('.hstat-lbl').forEach(el => { const v = el.dataset[lang]; if (v) el.textContent = v; });
 }
 
 // ══════════════════════════════ CSV PARSING ═══════════════════════
@@ -263,19 +249,15 @@ async function loadSheet2() {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${gsSheetId}/gviz/tq?tqx=out:csv&sheet=Лист2`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const timeoutId  = setTimeout(() => controller.abort(), 12000);
     let res;
     try {
       res = await fetch(url, { signal: controller.signal });
     } finally {
       clearTimeout(timeoutId);
     }
-    if (!res.ok) {
-      console.error('Sheet2 HTTP error', res.status);
-      showSheetError();
-      return;
-    }
-    const csv = await res.text();
+    if (!res.ok) { console.error('Sheet2 HTTP error', res.status); showSheetError(); return; }
+    const csv  = await res.text();
     const rows = parseCSV(csv);
 
     catalogFulfillmentUrl = strip((rows[2] || [])[0]) || '';
@@ -298,7 +280,7 @@ async function loadSheet2() {
       const hexColor = strip((rows[1] || [])[colRU]);
       const lessonsKZ = [], lessonsRU = [];
       for (let r = 2; r < rows.length; r++) {
-        const row = rows[r] || [];
+        const row   = rows[r] || [];
         const rawKZ = strip(row[colKZ]);
         const rawRU = strip(row[colRU]);
         if (!rawKZ && !rawRU) continue;
@@ -376,20 +358,21 @@ function applyLinks() {
     }
   };
   setLink('submenu-fulfillment', catalogFulfillmentUrl, true);
-  setLink('submenu-gold', catalogGoldUrl, true);
-  setLink('wa-action-link', waUrl, true);
-  setLink('tg-action-link', tgUrl, true);
-  setLink('wa-btn', waUrl);
-  setLink('tg-btn', tgUrl);
-  setLink('cat-modal-ff', catalogFulfillmentUrl);
-  setLink('cat-modal-gold', catalogGoldUrl);
+  setLink('submenu-gold',        catalogGoldUrl, true);
+  setLink('wa-action-link',      waUrl, true);
+  setLink('tg-action-link',      tgUrl, true);
+  setLink('wa-btn',              waUrl);
+  setLink('tg-btn',              tgUrl);
+  setLink('cat-modal-ff',        catalogFulfillmentUrl);
+  setLink('cat-modal-gold',      catalogGoldUrl);
   const tn = $('tg-note');
   if (tn) tn.innerHTML = t('tgNote').replace('__TG__', tgUrl || '#');
 }
 
 // ══════════════════════════════ PROGRESS ══════════════════════════
 const getWatchKey = (ci, li) => `${ci}-${li}`;
-const isWatched = (ci, li) => !!watchedLessons[getWatchKey(ci, li)];
+const isWatched   = (ci, li) => !!watchedLessons[getWatchKey(ci, li)];
+
 function markWatched(ci, li) {
   watchedLessons[getWatchKey(ci, li)] = true;
   localStorage.setItem('watched_lessons', JSON.stringify(watchedLessons));
@@ -451,7 +434,7 @@ const easeOut = t => 1 - Math.pow(1 - t, 3);
 function renderCoursesGrid() {
   const grid = $('platforms-grid');
   if (!grid) return;
-  const query = courseSearchQuery.toLowerCase().trim();
+  const query    = courseSearchQuery.toLowerCase().trim();
   const filtered = query
     ? courses.filter(c => {
         const n = (lang === 'kz' ? (c.nameKZ || c.nameRU) : (c.nameRU || c.nameKZ)).toLowerCase();
@@ -469,14 +452,14 @@ function renderCoursesGrid() {
   }
 
   grid.innerHTML = filtered.map((course, fi) => {
-    const idx = courses.indexOf(course);
-    const name = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
-    const lessons = lang === 'kz' ? course.lessonsKZ : course.lessonsRU;
+    const idx        = courses.indexOf(course);
+    const name       = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+    const lessons    = lang === 'kz' ? course.lessonsKZ : course.lessonsRU;
     const videoCount = lessons.filter(l => l.type === 'video').length;
-    const color = course.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
-    const initials = name.substring(0, 2).toUpperCase();
-    const delay = fi * 0.06;
-    const prog = getCourseProgress(idx);
+    const color      = course.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+    const initials   = name.substring(0, 2).toUpperCase();
+    const delay      = fi * 0.06;
+    const prog       = getCourseProgress(idx);
 
     const iconHtml = course.iconUrl
       ? `<img src="${course.iconUrl}" alt="${name}" onerror="this.style.display='none';this.parentNode.textContent='${initials}'">`
@@ -515,19 +498,13 @@ function renderCoursesGrid() {
     </div>`;
   }).join('');
 
-  // Re-animate hero stats after grid renders (counts may have changed)
   updateHeroStats();
 }
 
-// Debounced search handlers — exposed globally for HTML oninput
 function filterCourses(q) {
   clearTimeout(filterCoursesTimer);
-  filterCoursesTimer = setTimeout(() => {
-    courseSearchQuery = q;
-    renderCoursesGrid();
-  }, 220);
+  filterCoursesTimer = setTimeout(() => { courseSearchQuery = q; renderCoursesGrid(); }, 220);
 }
-
 function filterLessons(q) {
   clearTimeout(filterLessonsTimer);
   filterLessonsTimer = setTimeout(() => {
@@ -544,8 +521,8 @@ function openLesson(idx) {
   $('lesson-modal').classList.remove('video-active');
 
   const course = courses[idx];
-  const name  = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
-  const color = course.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+  const name   = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+  const color  = course.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
 
   const modal = $('lesson-modal').querySelector('.modal');
   if (modal) modal.style.setProperty('--card-accent-modal', color);
@@ -555,7 +532,7 @@ function openLesson(idx) {
   badge.style.cssText = `background:${hexToRgba(color, 0.14)};color:${color};display:inline-flex;align-items:center;border-radius:9px;padding:5px 14px;font-size:11px;font-weight:800;letter-spacing:0.6px;margin-bottom:16px;text-transform:uppercase`;
 
   $('lp-title').textContent = name;
-  $('lp-sub').textContent = '';
+  $('lp-sub').textContent   = '';
   const ls = $('lesson-search'); if(ls) { ls.value = ''; }
   lessonSearchQuery = '';
 
@@ -568,8 +545,8 @@ function updateModalProgress(idx) {
   const prog = getCourseProgress(idx);
   const fill = $('mps-fill'), pct = $('mps-pct'), sub = $('mps-sub');
   if (fill) fill.style.width = prog.pct + '%';
-  if (pct) pct.textContent = prog.pct + '%';
-  if (sub) sub.textContent = `${prog.watched} ${t('of')} ${prog.total} ${t('lessonsWatched')}`;
+  if (pct)  pct.textContent  = prog.pct + '%';
+  if (sub)  sub.textContent  = `${prog.watched} ${t('of')} ${prog.total} ${t('lessonsWatched')}`;
   const sec = $('modal-progress-section');
   if (sec) sec.style.display = prog.total > 0 ? 'block' : 'none';
   const banner = $('completion-banner');
@@ -578,10 +555,10 @@ function updateModalProgress(idx) {
 
 // ══════════════════════════════ LESSON LIST ═══════════════════════
 function renderLessonList(idx) {
-  const lessons = getLessons(idx);
-  const color   = courses[idx]?.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
-  const query   = lessonSearchQuery.toLowerCase().trim();
-  let videoSeq  = 0, hasResults = false;
+  const lessons  = getLessons(idx);
+  const color    = courses[idx]?.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+  const query    = lessonSearchQuery.toLowerCase().trim();
+  let videoSeq   = 0, hasResults = false;
 
   const html = lessons.map((lesson, i) => {
     if (lesson.type === 'empty') return '';
@@ -628,10 +605,10 @@ function renderLessonList(idx) {
     }
 
     // Video
-    const vIdx = videoSeq++;
+    const vIdx       = videoSeq++;
     const lessonName = lesson.name || (lang === 'kz' ? `Сабақ ${vIdx + 1}` : `Урок ${vIdx + 1}`);
-    const hasLink = lesson.url && lesson.url.length > 4;
-    const watched = isWatched(idx, i);
+    const hasLink    = lesson.url && lesson.url.length > 4;
+    const watched    = isWatched(idx, i);
 
     if (query && !lessonName.toLowerCase().includes(query)) return '';
     hasResults = true;
@@ -670,12 +647,12 @@ function closeLesson() {
 
 // ══════════════════════════════ IMAGE VIEWER ══════════════════════
 function openImageViewer(url, name) {
-  $('img-viewer-src').src = url;
-  $('img-viewer-src').alt = name;
+  $('img-viewer-src').src           = url;
+  $('img-viewer-src').alt           = name;
   $('img-viewer-title').textContent = name;
-  $('img-viewer-dl').href = url;
-  $('img-viewer-dl').download = name;
-  $('img-viewer-open').href = url;
+  $('img-viewer-dl').href           = url;
+  $('img-viewer-dl').download       = name;
+  $('img-viewer-open').href         = url;
   $('img-viewer-modal').classList.add('show');
 }
 function closeImageViewer() {
@@ -689,7 +666,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
   const lesson  = lessons[lessonAbsIdx];
   if (!lesson || lesson.type !== 'video') return;
 
-  currentCourseIdx = courseIdx;
+  currentCourseIdx   = courseIdx;
   currentLessonIndex = lessonAbsIdx;
   markWatched(courseIdx, lessonAbsIdx);
 
@@ -775,18 +752,18 @@ function setupTapZones() {
       }, 280);
     }
   }
-  left.onclick = () => handle('left');
-  right.onclick = () => handle('right');
+  left.onclick   = () => handle('left');
+  right.onclick  = () => handle('right');
   center.onclick = () => handle('center');
 }
 function prevLesson() {
   const lessons = getLessons(currentCourseIdx);
-  const prev = findAdjacentVideo(lessons, currentLessonIndex, -1);
+  const prev    = findAdjacentVideo(lessons, currentLessonIndex, -1);
   if (prev !== -1) playLesson(currentCourseIdx, prev);
 }
 function nextLesson() {
   const lessons = getLessons(currentCourseIdx);
-  const next = findAdjacentVideo(lessons, currentLessonIndex, +1);
+  const next    = findAdjacentVideo(lessons, currentLessonIndex, +1);
   if (next !== -1) playLesson(currentCourseIdx, next);
 }
 
@@ -805,24 +782,90 @@ function mobileNavTo(section, btn) {
   }
 }
 
+// ══════════════════════════════ DEVICE INFO ═══════════════════════
+function getDeviceInfo() {
+  const ua = navigator.userAgent;
+
+  let device = 'Десктоп';
+  if      (/iPhone/.test(ua))               device = 'iPhone';
+  else if (/iPad/.test(ua))                 device = 'iPad';
+  else if (/Android.*Mobile/.test(ua))      device = 'Android телефон';
+  else if (/Android/.test(ua))              device = 'Android планшет';
+
+  let os = 'Неизвестно';
+  if      (/Windows NT 10/.test(ua))        os = 'Windows 10/11';
+  else if (/Windows NT 6/.test(ua))         os = 'Windows 7/8';
+  else if (/Mac OS X/.test(ua))             os = 'macOS';
+  else if (/iPhone OS ([\d_]+)/.test(ua))   os = 'iOS '     + ua.match(/iPhone OS ([\d_]+)/)[1].replace(/_/g, '.');
+  else if (/Android ([\d.]+)/.test(ua))     os = 'Android ' + ua.match(/Android ([\d.]+)/)[1];
+  else if (/Linux/.test(ua))                os = 'Linux';
+
+  let browser = 'Неизвестно';
+  if      (/YaBrowser/.test(ua))            browser = 'Яндекс';
+  else if (/OPR|Opera/.test(ua))            browser = 'Opera';
+  else if (/Edg/.test(ua))                  browser = 'Edge';
+  else if (/Chrome/.test(ua))               browser = 'Chrome';
+  else if (/Firefox/.test(ua))              browser = 'Firefox';
+  else if (/Safari/.test(ua))               browser = 'Safari';
+
+  return { device, os, browser };
+}
+
+// ══════════════════════════════ LOGIN LOG ════════════════════════
+async function logLogin(iin, name) {
+  if (!LOG_SCRIPT_URL || LOG_SCRIPT_URL.includes('ВАШИ_ID')) return;
+  try {
+    const now = new Date();
+    const { device, os, browser } = getDeviceInfo();
+
+    let ip = '—';
+    try {
+      const r = await fetch('https://api.ipify.org?format=json',
+        { signal: AbortSignal.timeout(3000) });
+      ip = (await r.json()).ip || '—';
+    } catch (_) {}
+
+    fetch(LOG_SCRIPT_URL, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        _type:    'login_log',
+        date:     now.toLocaleDateString('ru-RU'),
+        time:     now.toLocaleTimeString('ru-RU'),
+        iin,
+        name,
+        device,
+        os,
+        browser,
+        screen:   `${screen.width}×${screen.height}`,
+        language: navigator.language || '—',
+        ip
+      })
+    });
+  } catch (e) {
+    console.warn('Log error:', e);
+  }
+}
+
 // ══════════════════════════════ LOGIN ════════════════════════════
 async function doLogin() {
   const name  = $('inp-name').value.trim();
   const iin   = $('inp-iin').value.trim();
   const phone = $('inp-phone').value.trim().replace(/\s/g, '');
-  $('login-error').style.display = 'none';
+  $('login-error').style.display   = 'none';
   $('login-success').style.display = 'none';
 
   if (!name || !iin || !phone) { showMsg('error', t('errEmpty')); return; }
-  if (!/^\d{12}$/.test(iin)) { showMsg('error', t('errIin')); return; }
+  if (!/^\d{12}$/.test(iin))   { showMsg('error', t('errIin'));   return; }
   if (phone.replace(/[+\-()]/g, '').length < 10) { showMsg('error', t('errPhone')); return; }
 
   const btn = $('login-btn');
   btn.disabled = true;
-  btn.classList.add('loading');  // ← spinner via CSS
+  btn.classList.add('loading');
 
   const pgw = $('progress-wrap'); pgw.style.display = 'block';
-  const pg = $('progress-glow'); if (pg) pg.classList.add('active');
+  const pg  = $('progress-glow'); if (pg) pg.classList.add('active');
   const steps = T[lang].steps;
   $('prog-steps').innerHTML = steps.map((s, i) =>
     `<span class="p-step" id="ps${i}"><span class="dot"></span>${s}</span>`).join('');
@@ -834,7 +877,7 @@ async function doLogin() {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${gsSheetId}/gviz/tq?tqx=out:csv`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId  = setTimeout(() => controller.abort(), 15000);
     let res;
     try {
       res = await fetch(url, { signal: controller.signal });
@@ -842,16 +885,16 @@ async function doLogin() {
       clearTimeout(timeoutId);
     }
     if (!res.ok) throw new Error('http_' + res.status);
-    const csv = await res.text();
+    const csv  = await res.text();
     const rows = parseCSV(csv);
     for (const row of rows) {
       if (strip(row[0]) === iin) {
-        found = true;
+        found     = true;
         foundName = strip(row[1]) || name;
-        const sA = (strip(row[10]) || '').toUpperCase();
-        const sP = (strip(row[11]) || '').toUpperCase();
+        const sA  = (strip(row[10]) || '').toUpperCase();
+        const sP  = (strip(row[11]) || '').toUpperCase();
         isAllowed = sA.includes('✅') && (sA.includes('РАЗРЕШЕНО') || sA.includes('РҰҚСАТ'));
-        isPaid    = sP.includes('✅') && (sP.includes('ОПЛАЧЕНО') || sP.includes('ТӨЛЕНДІ'));
+        isPaid    = sP.includes('✅') && (sP.includes('ОПЛАЧЕНО')  || sP.includes('ТӨЛЕНДІ'));
         break;
       }
     }
@@ -861,7 +904,6 @@ async function doLogin() {
     btn.classList.remove('loading');
     pgw.style.display = 'none';
     if (pg) pg.classList.remove('active');
-    // Distinguish timeout/network from HTTP errors
     const msg = (e.name === 'AbortError') ? t('errSheetUnavailable') : t('errNetwork');
     showMsg('error', msg);
     return;
@@ -872,8 +914,8 @@ async function doLogin() {
   await animProg(60, 75, 300, steps[3]); markStep(3);
   await sleep(180);
 
-  if (!found)    { finishLogin(btn); showMsg('error', t('errNotFound')); return; }
-  if (!isPaid)   { finishLogin(btn); showMsg('error', t('errNotPaid')); return; }
+  if (!found)  { finishLogin(btn); showMsg('error', t('errNotFound')); return; }
+  if (!isPaid) { finishLogin(btn); showMsg('error', t('errNotPaid'));  return; }
 
   await animProg(75, 90, 300, steps[4]); markStep(4);
   await sleep(180);
@@ -884,14 +926,14 @@ async function doLogin() {
   if (pg) pg.classList.remove('active');
 
   currentUser = foundName || name;
+  logLogin(iin, currentUser);
 
-  // ── Persist session so page refresh doesn't log user out ──────
   try {
     sessionStorage.setItem('bs_user', currentUser);
     sessionStorage.setItem('bs_iin',  iin);
-  } catch (_) { /* sessionStorage unavailable — no-op */ }
+  } catch (_) {}
 
-  $('login-success').textContent = t('ok') + ' ' + currentUser + '!';
+  $('login-success').textContent   = t('ok') + ' ' + currentUser + '!';
   $('login-success').style.display = 'block';
   await loadSheet2();
   await sleep(700);
@@ -903,14 +945,12 @@ function finishLogin(btn) {
   btn.classList.remove('loading');
   setTimeout(() => { $('progress-wrap').style.display = 'none'; $('prog-fill').style.width = '0%'; }, 1000);
 }
-
 function showMsg(type, msg) {
   const el = $(type === 'error' ? 'login-error' : 'login-success');
   el.textContent = msg; el.style.display = 'block';
 }
 function markStep(i) {
-  const el = $(`ps${i}`);
-  if (el) { el.classList.add('done'); }
+  const el = $(`ps${i}`); if (el) el.classList.add('done');
 }
 function animProg(from, to, dur, label) {
   return new Promise(res => {
@@ -921,16 +961,16 @@ function animProg(from, to, dur, label) {
       const p = Math.min(1, (Date.now() - start) / dur);
       const v = Math.round(from + (to - from) * easeOut(p));
       fill.style.width = v + '%';
-      pct.textContent = v + '%';
+      pct.textContent  = v + '%';
       p < 1 ? requestAnimationFrame(f) : res();
     })();
   });
 }
 
 function showLessons() {
-  $('login-page').style.display  = 'none';
-  $('lessons-page').style.display = 'block';
-  $('logout-btn').style.display   = 'flex';
+  $('login-page').style.display    = 'none';
+  $('lessons-page').style.display  = 'block';
+  $('logout-btn').style.display    = 'flex';
   $('header-center').style.display = 'flex';
   if (window.innerWidth <= 640) $('mobile-nav').style.display = 'flex';
   applyTexts(); applyLinks();
@@ -941,11 +981,11 @@ function showLessons() {
 function logout() {
   currentUser = null; currentCourseIdx = null;
   try { sessionStorage.removeItem('bs_user'); sessionStorage.removeItem('bs_iin'); } catch(_) {}
-  $('logout-btn').style.display = 'none';
-  $('mobile-nav').style.display = 'none';
+  $('logout-btn').style.display    = 'none';
+  $('mobile-nav').style.display    = 'none';
   $('header-center').style.display = 'none';
-  $('lessons-page').style.display = 'none';
-  $('login-page').style.display = 'flex';
+  $('lessons-page').style.display  = 'none';
+  $('login-page').style.display    = 'flex';
   ['inp-name','inp-iin','inp-phone'].forEach(id => { const e=$(id); if(e) e.value=''; });
   ['login-error','login-success'].forEach(id => { const e=$(id); if(e) e.style.display='none'; });
   $('progress-wrap').style.display = 'none';
@@ -965,7 +1005,7 @@ $('logo-wrap').addEventListener('click', () => {
   }
 });
 function openAdminPw() {
-  $('admin-pw-input').value = '';
+  $('admin-pw-input').value   = '';
   $('pw-error').style.display = 'none';
   $('admin-pw-modal').classList.add('show');
   setTimeout(() => $('admin-pw-input').focus(), 200);
@@ -975,9 +1015,9 @@ function checkAdminPw() {
     closeModal('admin-pw-modal');
     openAdmin();
   } else {
-    $('pw-error').textContent = t('wrongPw');
+    $('pw-error').textContent   = t('wrongPw');
     $('pw-error').style.display = 'block';
-    $('admin-pw-input').value = '';
+    $('admin-pw-input').value   = '';
     $('admin-pw-input').focus();
   }
 }
@@ -1001,7 +1041,7 @@ function closeModal(id) { $(id)?.classList.remove('show'); }
 document.querySelectorAll('.overlay').forEach(o => {
   o.addEventListener('click', e => {
     if (e.target !== o) return;
-    if (o.id === 'lesson-modal') closeLesson();
+    if (o.id === 'lesson-modal')          closeLesson();
     else if (o.id === 'img-viewer-modal') closeImageViewer();
     else o.classList.remove('show');
   });
@@ -1011,7 +1051,7 @@ document.querySelectorAll('.overlay').forEach(o => {
 function showToast(msg, type = 'success') {
   const el = $('toast');
   el.textContent = msg;
-  el.className = 'toast ' + type;
+  el.className   = 'toast ' + type;
   requestAnimationFrame(() => setTimeout(() => el.classList.add('show'), 10));
   setTimeout(() => el.classList.remove('show'), 3200);
 }
@@ -1050,7 +1090,7 @@ function safeAttr(s) {
 // ══════════════════════════════ KEYBOARD NAV ══════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if ($('lesson-modal').classList.contains('show')) closeLesson();
+    if ($('lesson-modal').classList.contains('show'))          closeLesson();
     else if ($('img-viewer-modal').classList.contains('show')) closeImageViewer();
     else document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
   }
@@ -1061,8 +1101,8 @@ document.addEventListener('keydown', e => {
 });
 
 // ══════════════════════════════ INPUT HELPERS ═════════════════════
-$('inp-iin').addEventListener('input', function () { this.value = this.value.replace(/\D/g, ''); });
-$('inp-iin').addEventListener('keydown',   e => { if (e.key === 'Enter') $('inp-phone').focus(); });
+$('inp-iin').addEventListener('input',   function () { this.value = this.value.replace(/\D/g, ''); });
+$('inp-iin').addEventListener('keydown', e => { if (e.key === 'Enter') $('inp-phone').focus(); });
 $('inp-name').addEventListener('keydown',  e => { if (e.key === 'Enter') $('inp-iin').focus(); });
 $('inp-phone').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
@@ -1070,18 +1110,15 @@ $('inp-phone').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin
 window.addEventListener('scroll', () => {
   const h = document.querySelector('.header-inner');
   if (h) h.style.background = window.scrollY > 20
-    ? (currentTheme === 'dark' ? 'rgba(6,6,8,0.95)' : 'rgba(245,245,250,0.97)')
-    : (currentTheme === 'dark' ? 'rgba(6,6,8,0.82)' : 'rgba(245,245,250,0.9)');
+    ? (currentTheme === 'dark' ? 'rgba(6,6,8,0.95)'  : 'rgba(245,245,250,0.97)')
+    : (currentTheme === 'dark' ? 'rgba(6,6,8,0.82)'  : 'rgba(245,245,250,0.9)');
 }, { passive: true });
 
 // ══════════════════════════════ SESSION RESTORE ═══════════════════
-// Attempt to restore a session that was alive before page refresh.
-// If sessionStorage has credentials, silently skip re-login.
 async function tryRestoreSession() {
   let savedUser = null;
   try { savedUser = sessionStorage.getItem('bs_user'); } catch(_) {}
   if (!savedUser) return false;
-
   currentUser = savedUser;
   await loadSheet2();
   showLessons();
@@ -1094,7 +1131,7 @@ async function tryRestoreSession() {
   const restored = await tryRestoreSession();
   if (!restored) {
     if (gsSheetId) loadSheet2();
-    $('login-page').style.display = 'flex';
+    $('login-page').style.display   = 'flex';
     $('lessons-page').style.display = 'none';
   }
 })();
