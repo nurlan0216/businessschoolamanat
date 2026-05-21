@@ -745,18 +745,17 @@ function closeImageViewer() {
 function showUniversalPlayOverlay(onPlayCallback) {
   const slot = $('video-slot');
   slot.innerHTML = `
-    <div id="universal-play-overlay" style="position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(0,0,0,0.77);cursor:pointer">
-      <div style="width:72px;height:72px;background:rgba(255,40,40,0.94);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(0,0,0,0.7)">
+    <div id="universal-play-overlay" style="position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(0,0,0,0.77)">
+      <div id="upo-btn" style="width:88px;height:88px;background:rgba(255,40,40,0.94);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(0,0,0,0.7);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
       </div>
-      <span style="color:#fff;font-size:16px;font-family:sans-serif;font-weight:500;">Нажмите для запуска видео</span>
+      <span style="color:#fff;font-size:15px;font-family:sans-serif;font-weight:500;pointer-events:none">Нажмите для запуска видео</span>
     </div>
   `;
-  $('universal-play-overlay').onclick = function() {
-    onPlayCallback();
-  };
+  const btn = document.getElementById('upo-btn');
+  btn.addEventListener('click', function () { onPlayCallback(); });
+  btn.addEventListener('touchend', function (e) { e.preventDefault(); onPlayCallback(); });
 }
-
 // ========= ВСТАВЬТЕ ЭТУ playLesson =========
 function playLesson(courseIdx, lessonAbsIdx) {
   const lessons = getLessons(courseIdx);
