@@ -902,14 +902,17 @@ function loadVimeoIframe(link) {
   const slot = $('video-slot'); slot.innerHTML = '';
   const m = link.match(/vimeo\.com\/(\d+)/);
   const videoId = m ? m[1] : '';
+  // autoplay=0 — ждём нажатия пользователя, тогда звук работает сразу
   const src = videoId
-    ? `https://player.vimeo.com/video/${videoId}?autoplay=1&playsinline=1`
+    ? `https://player.vimeo.com/video/${videoId}?autoplay=0&playsinline=1&muted=0`
     : link;
 
   const iframe = document.createElement('iframe');
   iframe.src = src;
   iframe.allow = 'autoplay; fullscreen; picture-in-picture';
   iframe.allowFullscreen = true;
+  iframe.setAttribute('allowfullscreen', 'true');
+  iframe.setAttribute('webkitallowfullscreen', 'true');
   iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
   slot.appendChild(iframe);
 }
