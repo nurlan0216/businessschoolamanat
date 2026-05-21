@@ -941,7 +941,7 @@ function loadVkIframe(link) {
   hideTapZones();
 
   let embedUrl = '';
-  const m1 = link.match(/video(-?\d+_\d+)/);
+  const m1 = link.match(/(?:video|clip)(-?\d+_\d+)/);
   if (m1) {
     const parts = m1[1].split('_');
     // autoplay=0 — без него браузер не блокирует звук
