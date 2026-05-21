@@ -1361,3 +1361,15 @@ body.cursor-active * { cursor: none !important; }
     0 6px 20px rgba(0, 0, 0, 0.12),
     0 0 16px color-mix(in srgb, var(--card-accent, #f5c842) 25%, transparent);
 }
+
+@media (max-width: 480px) {
+  .logout-btn {
+    padding: 8px !important;
+  }
+  .logout-btn #logout-label {
+    display: none !important; /* Прячем текст на смартфонах, оставляем только иконку */
+  }
+  .header-right {
+    gap: 4px !important; /* Сужаем отступы между кнопками в шапке */
+  }
+}
