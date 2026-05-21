@@ -808,11 +808,23 @@ function extractYouTubeId(url) {
 function loadYtIframe(ytId, startSec) {
   const slot = $('video-slot'); slot.innerHTML = '';
   ytStartTime = Date.now() - startSec * 1000;
-  const iframe = document.createElement('iframe');
-  iframe.src = `https://www.youtube.com/embed/${ytId}?start=${Math.max(0, Math.round(startSec))}&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
-  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;pointer-events:auto';
-  slot.appendChild(iframe);
+  currentYtId = ytId;
+
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (isIOS) {
+    slot.innerHTML = `
+      <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;border-radius:12px;overflow:hidden">
+        <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" style="width:100%;max-height:65%;object-fit:cover">
+        <a href="https://youtu.be/${ytId}" target="_blank" rel="noopener" style="background:#ff0000;color:#fff;border-radius:10px;padding:13px 32px;font-size:15px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">▶ Смотреть на YouTube</a>
+      </div>`;
+  } else {
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&start=${Math.max(0, Math.round(startSec))}&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+    slot.appendChild(iframe);
+  }
 }
 const getElapsedSec = () => Math.round((Date.now() - ytStartTime) / 1000);
 
