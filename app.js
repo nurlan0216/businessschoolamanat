@@ -788,15 +788,31 @@ function playLesson(courseIdx, lessonAbsIdx) {
   if (link) {
     const ytId = extractYouTubeId(link);
     if (ytId) {
-      showUniversalPlayOverlay(() => {
-        slot.innerHTML = '';
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-        slot.appendChild(iframe);
-      });
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isIOS) {
+    slot.innerHTML = `
+      <div style="position:absolute;inset:0;background:#000;overflow:hidden">
+        <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg"
+             style="width:100%;height:100%;object-fit:cover;opacity:0.65">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+          <a href="https://www.youtube.com/watch?v=${ytId}" target="_blank" rel="noopener"
+             style="width:82px;height:82px;background:rgba(255,0,0,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 28px rgba(0,0,0,0.6);text-decoration:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="white" style="margin-left:5px"><polygon points="5 3 19 12 5 21"/></svg>
+          </a>
+          <span style="color:#fff;font-size:14px;font-family:sans-serif;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,0.8)">Открыть в YouTube</span>
+        </div>
+      </div>`;
+  } else {
+    showUniversalPlayOverlay(() => {
+      slot.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+      slot.appendChild(iframe);
+    });
+  }
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
       let embedUrl = link;
       const mClip  = link.match(/clip(-?\d+)_(\d+)/);
