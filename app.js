@@ -939,35 +939,49 @@ function showTapZones() {
 }
 
 function loadVkIframe(link) {
-  const slot = $('video-slot'); slot.innerHTML = '';
-
-  // Скрываем tap-зоны — они мешают кликать по плееру VK
+  const slot = $('video-slot'); 
+  slot.innerHTML = '';
   hideTapZones();
 
   let embedUrl = '';
-  const m1 = link.match(/video(-?\d+_\d+)/);
-  if (m1) {
-    const parts = m1[1].split('_');
-    // autoplay=0 — без него браузер не блокирует звук
-    embedUrl = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&hd=2&autoplay=0&js_api=1`;
+
+  // 1. Извлекаем ID из разных типов ссылок VK (клипы и обычные видео)
+  const mClip  = link.match(/clip(-?\d+)_(\d+)/);
+  const mVideo = link.match(/video(-?\d+)_(\d+)/);
+
+  if (mClip) {
+    const oid = mClip[1];
+    const id  = mClip[2];
+    embedUrl = `https://vkvideo.ru/clip_ext.php?oid=${oid}&id=${id}&autoplay=1&no_recs=1`;
+  } else if (mVideo) {
+    const oid = mVideo[1];
+    const id  = mVideo[2];
+    embedUrl = `https://vk.com/video_ext.php?oid=${oid}&id=${id}&hd=2&autoplay=1&js_api=1&no_recs=1`;
   } else {
-    embedUrl = link.replace('autoplay=1', 'autoplay=0');
+    // Если в таблицу вставили уже готовую embed-ссылку из iframe
+    embedUrl = link;
+    if (!embedUrl.includes('autoplay=')) {
+      embedUrl += (embedUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+    } else {
+      embedUrl = embedUrl.replace('autoplay=0', 'autoplay=1');
+    }
+    if (!embedUrl.includes('no_recs=')) {
+      embedUrl += '&no_recs=1';
+    }
   }
 
-  // Показываем заглушку с кнопкой Play — при нажатии загружается iframe
-  // Это единственный способ получить звук: iframe должен создаваться после клика пользователя
+  // Показываем чистую ручную кнопку запуска видео для предотвращения сбоев и скрытия рекламы/рекомендаций
   slot.innerHTML = `
-    <div id="vk-play-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;border-radius:inherit"
+    <div id="vk-play-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#060608;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;border-radius:inherit;z-index:10"
          onclick="loadVkIframeNow('${embedUrl.replace(/'/g, "\\'")}', this)">
-      <div style="width:72px;height:72px;background:rgba(74,118,198,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 32px rgba(0,0,0,0.6);transition:transform .15s">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+      <div style="width:76px;height:76px;background:rgba(74,118,198,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);transition:transform .2s ease">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="white" style="margin-left:4px"><polygon points="5 3 19 12 5 21"/></svg>
       </div>
-      <span style="color:rgba(255,255,255,0.8);font-size:13px;font-family:'DM Sans',sans-serif">Нажмите для воспроизведения</span>
+      <span style="color:rgba(255,255,255,0.85);font-size:14px;font-family:sans-serif;font-weight:500;letter-spacing:0.5px">Включить видео урок</span>
     </div>`;
 }
 
 function loadVkIframeNow(embedUrl, overlay) {
-  // Убираем заглушку и вставляем iframe — именно после клика браузер разрешает звук
   const slot = $('video-slot');
   slot.innerHTML = '';
 
@@ -979,29 +993,8 @@ function loadVkIframeNow(embedUrl, overlay) {
   iframe.setAttribute('webkitallowfullscreen', 'true');
   iframe.setAttribute('mozallowfullscreen', 'true');
   iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-  slot.appendChild(iframe);
-}
-
-function loadBunnyIframe(link) {
-  // Поддерживает форматы:
-  // https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID
-  // https://video.bunnycdn.com/...
-  const slot = $('video-slot'); slot.innerHTML = '';
-  hideTapZones();
-  let src = link;
-
-  // Если ссылка не embed — пробуем построить embed URL
-  if (!link.includes('iframe.mediadelivery.net') && !link.includes('embed')) {
-    const m = link.match(/([a-f0-9\-]{36})/i);
-    if (m) src = `https://iframe.mediadelivery.net/embed/${m[1]}?autoplay=true`;
-  }
-
-  const iframe = document.createElement('iframe');
-  iframe.src = src;
-  iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
-  iframe.allowFullscreen = true;
-  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#000;';
+  
   slot.appendChild(iframe);
 }
 
