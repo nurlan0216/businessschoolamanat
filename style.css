@@ -1373,3 +1373,42 @@ body.cursor-active * { cursor: none !important; }
     gap: 4px !important; /* Сужаем отступы между кнопками в шапке */
   }
 }
+
+@media (max-width: 768px) {
+  /* Переводим декорации из абсолютного позиционирования в обычный flex-поток над карточкой */
+  .login-scene {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .login-deco {
+    position: relative !important;
+    display: flex !important;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 20px; /* Отображаем карточки сверху над формой приветствия */
+    inset: auto !important;
+  }
+
+  .deco-card {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    flex: 1;
+    max-width: 160px;
+    text-align: center;
+    box-shadow: var(--shadow-md) !important;
+    animation: fade-in-up 0.6s ease forward !important;
+  }
+  
+  .deco-card-3 {
+    display: none !important; /* Маленькую звездочку на мобилках можно скрыть */
+  }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
