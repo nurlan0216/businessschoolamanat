@@ -1,12 +1,12 @@
 /* ============================================================
-   BUSINESS SCHOOL AMANAT — APP LOGIC v3.1
+   BUSINESS SCHOOL AMANAT — APP LOGIC v3.2 (UPDATED)
    ============================================================ */
 
 'use strict';
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
-const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbzQtz6RA2GPWGuvclEui7CKjoAN111OZyU5twaY9me0OvErBQ5lD9E0jc0gyy9Y4d25/exec';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbyyEJYUv_Ked-_QMgIZxNLZIECP-b66voqc8N3WkdcU7qgUHmeHOTmDhGuhWaAiRYzD/exec';
 const ADMIN_PASSWORD   = 'N20020216$$';
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
@@ -34,6 +34,9 @@ let catalogFulfillmentUrl = '';
 let catalogGoldUrl        = '';
 let waUrl                 = '';
 let tgUrl                 = '';
+
+// Переменная для хранения фонового интервала проверки блокировки
+let securityCheckInterval = null;
 
 // ══════════════════════════════ TRANSLATIONS ══════════════════════
 const T = {
@@ -82,7 +85,7 @@ const T = {
     eyebrow: 'Білім беру платформасы',
     loginTitle: 'Қош\nкелдіңіз',
     loginSub: 'Кіру үшін деректерді енгізіңіз. Қол жеткізу тек тіркелген қатысушыларға беріледі.',
-    loginHint: 'Business School Amanat-пен шарт жасасқанда көрсеткен аты-жөніңізді, ЖСН-іңізді және телефон нөміріңізді енгізіңіз.',
+    loginHint: 'Business School Amanat-пен шарт жасасқанда көрсеткен аты-жөнінiзді, ЖСН-іңізді және телефон нөміріңізді енгізіңіз.',
     labelName: 'Аты-жөніңіз', labelIin: 'ЖСН', labelPhone: 'Телефон нөмірі',
     btnText: 'Платформаға кіру', logout: 'Шығу',
     tgNote: 'Сұрақ бар ма? <a href="__TG__" target="_blank" rel="noopener">Кураторға жазу</a>',
@@ -242,6 +245,84 @@ function parseCSV(text) {
   return rows;
 }
 const strip = s => (s || '').replace(/^"|"$/g, '').trim();
+
+// ══════════════════════════════ SECURITY LIVE MONITOR ═════════════
+function startSecurityMonitor() {
+  if (securityCheckInterval) clearInterval(securityCheckInterval);
+  
+  securityCheckInterval = setInterval(async () => {
+    let currentIin = null;
+    try { currentIin = sessionStorage.getItem('bs_iin'); } catch(_) {}
+    if (!currentUser || !currentIin) return;
+
+    try {
+      // Запрашиваем Лист1 (база пользователей с флагами доступа)
+      const url = `https://docs.google.com/spreadsheets/d/${gsSheetId}/gviz/tq?tqx=out:csv`;
+      const res = await fetch(url);
+      if (!res.ok) return; // Если сбой сети — не прерываем сессию до следующей попытки
+      
+      const csv = await res.text();
+      const rows = parseCSV(csv);
+      
+      let found = false;
+      let isAllowed = false;
+      let isPaid = false;
+
+      for (const row of rows) {
+        if (strip(row[0]) === currentIin) {
+          found = true;
+          const sA  = (strip(row[10]) || '').toUpperCase();
+          const sP  = (strip(row[11]) || '').toUpperCase();
+          isAllowed = sA.includes('✅') && (sA.includes('РАЗРЕШЕНО') || sA.includes('РҰҚСАТ'));
+          isPaid    = sP.includes('✅') && (sP.includes('ОПЛАЧЕНО')  || sP.includes('ТӨЛЕНДІ'));
+          break;
+        }
+      }
+
+      // Если ИИН удален, закрыт доступ или снята оплата — мгновенно блокируем сессию
+      if (!found || !isAllowed || !isPaid) {
+        triggerInstantBlock();
+      }
+    } catch (e) {
+      console.warn('Security monitor tick failed:', e);
+    }
+  }, 10000); // Интервал проверки — 10 секунд
+}
+
+function triggerInstantBlock() {
+  if (securityCheckInterval) clearInterval(securityCheckInterval);
+  
+  // Принудительно чистим сессию
+  currentUser = null;
+  currentCourseIdx = null;
+  try {
+    sessionStorage.removeItem('bs_user');
+    sessionStorage.removeItem('bs_iin');
+  } catch (_) {}
+
+  // Глушим видеоплеер
+  const slot = $('video-slot');
+  if (slot) slot.innerHTML = '';
+
+  // Закрываем все всплывающие окна, если они были открыты
+  $('lesson-modal').classList.remove('show', 'video-active');
+  $('video-section').style.display = 'none';
+
+  // Прячем основные рабочие экраны платформы
+  $('lessons-page').style.display = 'none';
+  $('logout-btn').style.display   = 'none';
+  $('mobile-nav').style.display   = 'none';
+  
+  // Показываем оверлей принудительной блокировки
+  const blockOverlay = $('block-overlay');
+  if (blockOverlay) {
+    blockOverlay.style.display = 'flex';
+  } else {
+    // Если оверлей не добавлен в HTML, откатываем на страницу логина с ошибкой
+    $('login-page').style.display = 'flex';
+    showMsg('error', t('errNoAccess'));
+  }
+}
 
 // ══════════════════════════════ LOAD SHEET 2 ══════════════════════
 async function loadSheet2() {
@@ -434,7 +515,7 @@ const easeOut = t => 1 - Math.pow(1 - t, 3);
 function renderCoursesGrid() {
   const grid = $('platforms-grid');
   if (!grid) return;
-  const query    = courseSearchQuery.toLowerCase().trim();
+  const query = courseSearchQuery.toLowerCase().trim();
   const filtered = query
     ? courses.filter(c => {
         const n = (lang === 'kz' ? (c.nameKZ || c.nameRU) : (c.nameRU || c.nameKZ)).toLowerCase();
@@ -666,7 +747,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
   const lesson  = lessons[lessonAbsIdx];
   if (!lesson || lesson.type !== 'video') return;
 
-  currentCourseIdx   = courseIdx;
+  currentCourseIdx = courseIdx;
   currentLessonIndex = lessonAbsIdx;
   markWatched(courseIdx, lessonAbsIdx);
 
@@ -752,18 +833,18 @@ function setupTapZones() {
       }, 280);
     }
   }
-  left.onclick   = () => handle('left');
-  right.onclick  = () => handle('right');
+  left.onclick = () => handle('left');
+  right.onclick = () => handle('right');
   center.onclick = () => handle('center');
 }
 function prevLesson() {
   const lessons = getLessons(currentCourseIdx);
-  const prev    = findAdjacentVideo(lessons, currentLessonIndex, -1);
+  const prev = findAdjacentVideo(lessons, currentLessonIndex, -1);
   if (prev !== -1) playLesson(currentCourseIdx, prev);
 }
 function nextLesson() {
   const lessons = getLessons(currentCourseIdx);
-  const next    = findAdjacentVideo(lessons, currentLessonIndex, +1);
+  const next = findAdjacentVideo(lessons, currentLessonIndex, +1);
   if (next !== -1) playLesson(currentCourseIdx, next);
 }
 
@@ -787,26 +868,26 @@ function getDeviceInfo() {
   const ua = navigator.userAgent;
 
   let device = 'Десктоп';
-  if      (/iPhone/.test(ua))               device = 'iPhone';
-  else if (/iPad/.test(ua))                 device = 'iPad';
-  else if (/Android.*Mobile/.test(ua))      device = 'Android телефон';
-  else if (/Android/.test(ua))              device = 'Android планшет';
+  if      (/iPhone/.test(ua))             device = 'iPhone';
+  else if (/iPad/.test(ua))               device = 'iPad';
+  else if (/Android.*Mobile/.test(ua))    device = 'Android телефон';
+  else if (/Android/.test(ua))            device = 'Android планшет';
 
   let os = 'Неизвестно';
-  if      (/Windows NT 10/.test(ua))        os = 'Windows 10/11';
-  else if (/Windows NT 6/.test(ua))         os = 'Windows 7/8';
-  else if (/Mac OS X/.test(ua))             os = 'macOS';
-  else if (/iPhone OS ([\d_]+)/.test(ua))   os = 'iOS '     + ua.match(/iPhone OS ([\d_]+)/)[1].replace(/_/g, '.');
-  else if (/Android ([\d.]+)/.test(ua))     os = 'Android ' + ua.match(/Android ([\d.]+)/)[1];
-  else if (/Linux/.test(ua))                os = 'Linux';
+  if      (/Windows NT 10/.test(ua))      os = 'Windows 10/11';
+  else if (/Windows NT 6/.test(ua))       os = 'Windows 7/8';
+  else if (/Mac OS X/.test(ua))            os = 'macOS';
+  else if (/iPhone OS ([\d_]+)/.test(ua))  os = 'iOS '     + ua.match(/iPhone OS ([\d_]+)/)[1].replace(/_/g, '.');
+  else if (/Android ([\d.]+)/.test(ua))    os = 'Android ' + ua.match(/Android ([\d.]+)/)[1];
+  else if (/Linux/.test(ua))               os = 'Linux';
 
   let browser = 'Неизвестно';
-  if      (/YaBrowser/.test(ua))            browser = 'Яндекс';
-  else if (/OPR|Opera/.test(ua))            browser = 'Opera';
-  else if (/Edg/.test(ua))                  browser = 'Edge';
-  else if (/Chrome/.test(ua))               browser = 'Chrome';
-  else if (/Firefox/.test(ua))              browser = 'Firefox';
-  else if (/Safari/.test(ua))               browser = 'Safari';
+  if      (/YaBrowser/.test(ua))          browser = 'Яндекс';
+  else if (/OPR|Opera/.test(ua))          browser = 'Opera';
+  else if (/Edg/.test(ua))                browser = 'Edge';
+  else if (/Chrome/.test(ua))             browser = 'Chrome';
+  else if (/Firefox/.test(ua))            browser = 'Firefox';
+  else if (/Safari/.test(ua))             browser = 'Safari';
 
   return { device, os, browser };
 }
@@ -973,12 +1054,27 @@ function showLessons() {
   $('logout-btn').style.display    = 'flex';
   $('header-center').style.display = 'flex';
   if (window.innerWidth <= 640) $('mobile-nav').style.display = 'flex';
+  
+  // Закрываем окно принудительной блокировки, если оно висело
+  const blockOverlay = $('block-overlay');
+  if (blockOverlay) blockOverlay.style.display = 'none';
+
   applyTexts(); applyLinks();
   updateHeroStats();
+
+  // Запуск фоновой ежесекундной/10-секундной проверки прав доступа пользователя в Лист1
+  startSecurityMonitor();
+
   setTimeout(() => { document.querySelectorAll('.platform-card').forEach(el => el.style.animation = ''); }, 1000);
 }
 
 function logout() {
+  // Сбрасываем фоновый интервал проверки при ручном выходе
+  if (securityCheckInterval) {
+    clearInterval(securityCheckInterval);
+    securityCheckInterval = null;
+  }
+
   currentUser = null; currentCourseIdx = null;
   try { sessionStorage.removeItem('bs_user'); sessionStorage.removeItem('bs_iin'); } catch(_) {}
   $('logout-btn').style.display    = 'none';
@@ -1117,8 +1213,14 @@ window.addEventListener('scroll', () => {
 // ══════════════════════════════ SESSION RESTORE ═══════════════════
 async function tryRestoreSession() {
   let savedUser = null;
-  try { savedUser = sessionStorage.getItem('bs_user'); } catch(_) {}
-  if (!savedUser) return false;
+  let savedIin = null;
+  try { 
+    savedUser = sessionStorage.getItem('bs_user'); 
+    savedIin  = sessionStorage.getItem('bs_iin');
+  } catch(_) {}
+  
+  if (!savedUser || !savedIin) return false;
+  
   currentUser = savedUser;
   await loadSheet2();
   showLessons();
