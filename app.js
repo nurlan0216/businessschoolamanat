@@ -1,3 +1,4 @@
+cat > /mnt/user-data/outputs/app.js << 'ENDOFFILE'
 /* ============================================================
    BUSINESS SCHOOL AMANAT — APP LOGIC v3.2 (UPDATED)
    ============================================================ */
@@ -249,21 +250,20 @@ const strip = s => (s || '').replace(/^"|"$/g, '').trim();
 // ══════════════════════════════ SECURITY LIVE MONITOR ═════════════
 function startSecurityMonitor() {
   if (securityCheckInterval) clearInterval(securityCheckInterval);
-  
+
   securityCheckInterval = setInterval(async () => {
     let currentIin = null;
     try { currentIin = sessionStorage.getItem('bs_iin'); } catch(_) {}
     if (!currentUser || !currentIin) return;
 
     try {
-      // Запрашиваем Лист1 (база пользователей с флагами доступа)
       const url = `https://docs.google.com/spreadsheets/d/${gsSheetId}/gviz/tq?tqx=out:csv`;
       const res = await fetch(url);
-      if (!res.ok) return; // Если сбой сети — не прерываем сессию до следующей попытки
-      
+      if (!res.ok) return;
+
       const csv = await res.text();
       const rows = parseCSV(csv);
-      
+
       let found = false;
       let isAllowed = false;
       let isPaid = false;
@@ -279,20 +279,18 @@ function startSecurityMonitor() {
         }
       }
 
-      // Если ИИН удален, закрыт доступ или снята оплата — мгновенно блокируем сессию
       if (!found || !isAllowed || !isPaid) {
         triggerInstantBlock();
       }
     } catch (e) {
       console.warn('Security monitor tick failed:', e);
     }
-  }, 10000); // Интервал проверки — 10 секунд
+  }, 10000);
 }
 
 function triggerInstantBlock() {
   if (securityCheckInterval) clearInterval(securityCheckInterval);
-  
-  // Принудительно чистим сессию
+
   currentUser = null;
   currentCourseIdx = null;
   try {
@@ -300,25 +298,20 @@ function triggerInstantBlock() {
     sessionStorage.removeItem('bs_iin');
   } catch (_) {}
 
-  // Глушим видеоплеер
   const slot = $('video-slot');
   if (slot) slot.innerHTML = '';
 
-  // Закрываем все всплывающие окна, если они были открыты
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
 
-  // Прячем основные рабочие экраны платформы
   $('lessons-page').style.display = 'none';
   $('logout-btn').style.display   = 'none';
   $('mobile-nav').style.display   = 'none';
-  
-  // Показываем оверлей принудительной блокировки
+
   const blockOverlay = $('block-overlay');
   if (blockOverlay) {
     blockOverlay.style.display = 'flex';
   } else {
-    // Если оверлей не добавлен в HTML, откатываем на страницу логина с ошибкой
     $('login-page').style.display = 'flex';
     showMsg('error', t('errNoAccess'));
   }
@@ -773,29 +766,21 @@ function playLesson(courseIdx, lessonAbsIdx) {
   if (link) {
     const ytId = extractYouTubeId(link);
     if (ytId) {
-      // YouTube
       currentYtId = ytId;
       loadYtIframe(ytId, 0);
     } else if (link.includes('drive.google.com')) {
-      // Google Drive
       loadDriveIframe(link);
     } else if (link.includes('cloudflarestream.com') || link.includes('iframe.cloudflarestream.com')) {
-      // Cloudflare Stream
       loadCloudflareIframe(link);
     } else if (link.includes('vimeo.com')) {
-      // Vimeo
       loadVimeoIframe(link);
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
-      // VK Видео
       loadVkIframe(link);
     } else if (link.includes('bunny.net') || link.includes('b-cdn.net') || link.includes('iframe.mediadelivery.net')) {
-      // Bunny Stream
       loadBunnyIframe(link);
     } else if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(link)) {
-      // Прямой mp4/видео файл
       loadDirectVideo(link);
     } else {
-      // Любой другой iframe
       hideTapZones();
       const iframe = document.createElement('iframe');
       iframe.src = link;
@@ -836,7 +821,6 @@ function loadYtIframe(ytId, startSec) {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   if (isIOS) {
-    // На iPhone YouTube iframe не воспроизводится — показываем превью с кнопкой открытия
     hideTapZones();
     slot.innerHTML = `
       <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#000;overflow:hidden">
@@ -888,9 +872,6 @@ function loadDriveIframe(link) {
 function loadCloudflareIframe(link) {
   const slot = $('video-slot'); slot.innerHTML = '';
   hideTapZones();
-  // Извлекаем video ID из ссылки вида:
-  // https://iframe.cloudflarestream.com/VIDEO_ID
-  // https://cloudflarestream.com/VIDEO_ID/iframe
   let src = link;
   const m = link.match(/cloudflarestream\.com\/([a-f0-9]+)/i);
   if (m) src = `https://iframe.cloudflarestream.com/${m[1]}?autoplay=true&preload=true`;
@@ -908,7 +889,6 @@ function loadVimeoIframe(link) {
   hideTapZones();
   const m = link.match(/vimeo\.com\/(\d+)/);
   const videoId = m ? m[1] : '';
-  // autoplay=0 — ждём нажатия пользователя, тогда звук работает сразу
   const src = videoId
     ? `https://player.vimeo.com/video/${videoId}?autoplay=0&playsinline=1&muted=0`
     : link;
@@ -934,39 +914,50 @@ function showTapZones() {
   });
 }
 
+// ══════════════════════════════ VK VIDEO ══════════════════════════
+// Поддерживает оба формата: video-OID_ID и clip-OID_ID
+// Android/десктоп: iframe с autoplay, без рекламы и рекомендаций
+// iPhone/iPad:     превью с кнопкой «Открыть в VK»
 function loadVkIframe(link) {
-  const slot = $('video-slot'); slot.innerHTML = '';
-
-  // Скрываем tap-зоны — они мешают кликать по плееру VK
+  const slot = $('video-slot');
+  slot.innerHTML = '';
   hideTapZones();
 
+  // Строим embed URL — поддержка video-... и clip-... форматов
   let embedUrl = '';
   const m1 = link.match(/(?:video|clip)(-?\d+_\d+)/);
   if (m1) {
     const parts = m1[1].split('_');
-    // autoplay=0 — без него браузер не блокирует звук
-    embedUrl = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&hd=2&autoplay=0&js_api=1`;
+    // autoplay=1       — автовоспроизведение на Android
+    // no_repeat=1      — убирает рекомендации после окончания
+    // app_id=0         — убирает баннер «Скачать приложение»
+    embedUrl = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&hd=2&autoplay=1&js_api=1&no_repeat=1&app_id=0`;
   } else {
-    embedUrl = link.replace('autoplay=1', 'autoplay=0');
+    embedUrl = link.replace('autoplay=0', 'autoplay=1');
   }
 
-  // Показываем заглушку с кнопкой Play — при нажатии загружается iframe
-  // Это единственный способ получить звук: iframe должен создаваться после клика пользователя
-  slot.innerHTML = `
-    <div id="vk-play-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;border-radius:inherit"
-         onclick="loadVkIframeNow('${embedUrl.replace(/'/g, "\\'")}', this)">
-      <div style="width:72px;height:72px;background:rgba(74,118,198,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 32px rgba(0,0,0,0.6);transition:transform .15s">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
-      </div>
-      <span style="color:rgba(255,255,255,0.8);font-size:13px;font-family:'DM Sans',sans-serif">Нажмите для воспроизведения</span>
-    </div>`;
-}
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-function loadVkIframeNow(embedUrl, overlay) {
-  // Убираем заглушку и вставляем iframe — именно после клика браузер разрешает звук
-  const slot = $('video-slot');
-  slot.innerHTML = '';
+  if (isIOS) {
+    // На iPhone VK iframe не воспроизводится — показываем превью с кнопкой
+    const vkUrl = link.split('|')[0];
+    slot.innerHTML = `
+      <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#000;overflow:hidden">
+        <div style="position:relative;width:100%;flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center">
+          <div style="width:72px;height:72px;background:rgba(74,118,198,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 32px rgba(0,0,0,0.6)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+          </div>
+        </div>
+        <a href="${vkUrl}" target="_blank" rel="noopener"
+           style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:rgba(74,118,198,0.95);color:#fff;font-size:14px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+          Смотреть в VK
+        </a>
+      </div>`;
+    return;
+  }
 
+  // Android и десктоп — грузим iframe сразу
   const iframe = document.createElement('iframe');
   iframe.src = embedUrl;
   iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock; web-share';
@@ -980,14 +971,10 @@ function loadVkIframeNow(embedUrl, overlay) {
 }
 
 function loadBunnyIframe(link) {
-  // Поддерживает форматы:
-  // https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID
-  // https://video.bunnycdn.com/...
   const slot = $('video-slot'); slot.innerHTML = '';
   hideTapZones();
   let src = link;
 
-  // Если ссылка не embed — пробуем построить embed URL
   if (!link.includes('iframe.mediadelivery.net') && !link.includes('embed')) {
     const m = link.match(/([a-f0-9\-]{36})/i);
     if (m) src = `https://iframe.mediadelivery.net/embed/${m[1]}?autoplay=true`;
@@ -1254,22 +1241,19 @@ function showLessons() {
   $('logout-btn').style.display    = 'flex';
   $('header-center').style.display = 'flex';
   if (window.innerWidth <= 640) $('mobile-nav').style.display = 'flex';
-  
-  // Закрываем окно принудительной блокировки, если оно висело
+
   const blockOverlay = $('block-overlay');
   if (blockOverlay) blockOverlay.style.display = 'none';
 
   applyTexts(); applyLinks();
   updateHeroStats();
 
-  // Запуск фоновой ежесекундной/10-секундной проверки прав доступа пользователя в Лист1
   startSecurityMonitor();
 
   setTimeout(() => { document.querySelectorAll('.platform-card').forEach(el => el.style.animation = ''); }, 1000);
 }
 
 function logout() {
-  // Сбрасываем фоновый интервал проверки при ручном выходе
   if (securityCheckInterval) {
     clearInterval(securityCheckInterval);
     securityCheckInterval = null;
@@ -1414,13 +1398,13 @@ window.addEventListener('scroll', () => {
 async function tryRestoreSession() {
   let savedUser = null;
   let savedIin = null;
-  try { 
-    savedUser = sessionStorage.getItem('bs_user'); 
+  try {
+    savedUser = sessionStorage.getItem('bs_user');
     savedIin  = sessionStorage.getItem('bs_iin');
   } catch(_) {}
-  
+
   if (!savedUser || !savedIin) return false;
-  
+
   currentUser = savedUser;
   await loadSheet2();
   showLessons();
