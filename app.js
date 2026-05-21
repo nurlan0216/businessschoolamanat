@@ -798,25 +798,15 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
 
-        // Блок сверху — перекрывает название канала (всегда активен)
+        // Прозрачный блок сверху — блокирует название канала и переход в YouTube, постоянный
         const topBlock = document.createElement('div');
-        topBlock.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:17%;z-index:5;background:#000;pointer-events:all';
+        topBlock.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:30%;z-index:5;background:transparent;pointer-events:all';
         slot.appendChild(topBlock);
 
-        // Блок снизу — перекрывает "Смотреть на YouTube", исчезает через 2.5с чтобы не мешать управлению
+        // Прозрачный блок снизу — блокирует "Смотреть на YouTube", постоянный
         const bottomBlock = document.createElement('div');
-        bottomBlock.id = 'yt-bottom-block';
-        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:14%;z-index:5;background:#000;pointer-events:all;transition:opacity 1.2s ease';
+        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:20%;z-index:5;background:transparent;pointer-events:all';
         slot.appendChild(bottomBlock);
-
-        setTimeout(() => {
-          const bb = document.getElementById('yt-bottom-block');
-          if (bb) {
-            bb.style.opacity = '0';
-            bb.style.pointerEvents = 'none';
-            setTimeout(() => { if (bb && bb.parentNode) bb.parentNode.removeChild(bb); }, 1300);
-          }
-        }, 2500);
       });
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
       let embedUrl = link;
