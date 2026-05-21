@@ -741,7 +741,23 @@ function closeImageViewer() {
   setTimeout(() => { $('img-viewer-src').src = ''; }, 300);
 }
 
-// ══════════════════════════════ VIDEO PLAYER ══════════════════════
+// ===== UNIVERSAL OVERLAY ДЛЯ ЗАПУСКА ВИДЕО ======
+function showUniversalPlayOverlay(onPlayCallback) {
+  const slot = $('video-slot');
+  slot.innerHTML = `
+    <div id="universal-play-overlay" style="position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(0,0,0,0.77);cursor:pointer">
+      <div style="width:72px;height:72px;background:rgba(255,40,40,0.94);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(0,0,0,0.7)">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+      </div>
+      <span style="color:#fff;font-size:16px;font-family:sans-serif;font-weight:500;">Нажмите для запуска видео</span>
+    </div>
+  `;
+  $('universal-play-overlay').onclick = function() {
+    onPlayCallback();
+  };
+}
+
+// ========= ВСТАВЬТЕ ЭТУ playLesson =========
 function playLesson(courseIdx, lessonAbsIdx) {
   const lessons = getLessons(courseIdx);
   const lesson  = lessons[lessonAbsIdx];
@@ -773,40 +789,119 @@ function playLesson(courseIdx, lessonAbsIdx) {
   if (link) {
     const ytId = extractYouTubeId(link);
     if (ytId) {
-      // YouTube
-      currentYtId = ytId;
-      loadYtIframe(ytId, 0);
-    } else if (link.includes('drive.google.com')) {
-      // Google Drive — если прямая ссылка на скачивание (uc?export=download) — играем как video
-      if (link.includes('export=download') || link.includes('uc?id=')) {
-        loadDirectVideo(link);
-      } else {
-        loadDriveIframe(link);
-      }
-    } else if (link.includes('cloudflarestream.com') || link.includes('iframe.cloudflarestream.com')) {
-      // Cloudflare Stream
-      loadCloudflareIframe(link);
-    } else if (link.includes('vimeo.com')) {
-      // Vimeo
-      loadVimeoIframe(link);
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
-      // VK Видео
-      loadVkIframe(link);
+      let embedUrl = link;
+      const mClip  = link.match(/clip(-?\d+)_(\d+)/);
+      const mVideo = link.match(/video(-?\d+)_(\d+)/);
+      if (mClip) {
+        const oid = mClip[1];
+        const id  = mClip[2];
+        embedUrl = `https://vkvideo.ru/clip_ext.php?oid=${oid}&id=${id}&autoplay=1&no_recs=1`;
+      } else if (mVideo) {
+        const oid = mVideo[1];
+        const id  = mVideo[2];
+        embedUrl = `https://vk.com/video_ext.php?oid=${oid}&id=${id}&hd=2&autoplay=1&js_api=1&no_recs=1`;
+      }
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = embedUrl;
+        iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock; web-share';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('webkitallowfullscreen', 'true');
+        iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else if (link.includes('drive.google.com')) {
+      let fileId = null;
+      const m1 = link.match(/\/file\/d\/([^\/\?&]+)/);
+      const m2 = link.match(/[?&]id=([^&]+)/);
+      if (m1) fileId = m1[1]; else if (m2) fileId = m2[1];
+      const embedUrl = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : link.replace('/view', '/preview');
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = embedUrl;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else if (link.includes('cloudflarestream.com') || link.includes('iframe.cloudflarestream.com')) {
+      let src = link;
+      const m = link.match(/cloudflarestream\.com\/([a-f0-9]+)/i);
+      if (m) src = `https://iframe.cloudflarestream.com/${m[1]}?autoplay=true&preload=true`;
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else if (link.includes('vimeo.com')) {
+      const m = link.match(/vimeo\.com\/(\d+)/);
+      const videoId = m ? m[1] : '';
+      const src = videoId ? `https://player.vimeo.com/video/${videoId}?autoplay=1&playsinline=1&muted=0` : link;
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+        iframe.setAttribute('allowfullscreen', 'true');
+        iframe.setAttribute('webkitallowfullscreen', 'true');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
     } else if (link.includes('bunny.net') || link.includes('b-cdn.net') || link.includes('iframe.mediadelivery.net')) {
-      // Bunny Stream
-      loadBunnyIframe(link);
+      let src = link;
+      if (!link.includes('iframe.mediadelivery.net') && !link.includes('embed')) {
+        const m = link.match(/([a-f0-9\-]{36})/i);
+        if (m) src = `https://iframe.mediadelivery.net/embed/${m[1]}?autoplay=true`;
+      }
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
     } else if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(link)) {
-      // Прямой mp4/видео файл
-      loadDirectVideo(link);
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const video = document.createElement('video');
+        video.src = link;
+        video.controls = true;
+        video.playsinline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        video.preload = 'metadata';
+        video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;border-radius:inherit';
+        slot.appendChild(video);
+      });
     } else {
-      // Любой другой iframe
-      hideTapZones();
-      const iframe = document.createElement('iframe');
-      iframe.src = link;
-      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
-      iframe.allowFullscreen = true;
-      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-      slot.appendChild(iframe);
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = link;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
     }
   } else {
     slot.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;flex-direction:column;gap:10px"><span style="font-size:36px">🎬</span><span>Ссылка не добавлена</span></div>`;
