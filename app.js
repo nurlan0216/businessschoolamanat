@@ -777,8 +777,12 @@ function playLesson(courseIdx, lessonAbsIdx) {
       currentYtId = ytId;
       loadYtIframe(ytId, 0);
     } else if (link.includes('drive.google.com')) {
-      // Google Drive
-      loadDriveIframe(link);
+      // Google Drive — если прямая ссылка на скачивание (uc?export=download) — играем как video
+      if (link.includes('export=download') || link.includes('uc?id=')) {
+        loadDirectVideo(link);
+      } else {
+        loadDriveIframe(link);
+      }
     } else if (link.includes('cloudflarestream.com') || link.includes('iframe.cloudflarestream.com')) {
       // Cloudflare Stream
       loadCloudflareIframe(link);
@@ -941,7 +945,7 @@ function loadVkIframe(link) {
   hideTapZones();
 
   let embedUrl = '';
-  const m1 = link.match(/(?:video|clip)(-?\d+_\d+)/);
+  const m1 = link.match(/video(-?\d+_\d+)/);
   if (m1) {
     const parts = m1[1].split('_');
     // autoplay=0 — без него браузер не блокирует звук
