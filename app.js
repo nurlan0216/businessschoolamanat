@@ -798,12 +798,27 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
 
-        // Прозрачный блок сверху — блокирует название канала и переход в YouTube, постоянный
-        const topBlock = document.createElement('div');
-        topBlock.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:30%;z-index:5;background:transparent;pointer-events:all';
-        slot.appendChild(topBlock);
+        // Левый верхний блок — блокирует канал/название, постоянный
+        const topLeft = document.createElement('div');
+        topLeft.style.cssText = 'position:absolute;top:0;left:0;width:70%;height:30%;z-index:5;background:transparent;pointer-events:all';
+        slot.appendChild(topLeft);
 
-        // Прозрачный блок снизу — блокирует "Смотреть на YouTube", постоянный
+        // Правый верхний блок — блокирует звук/CC/настройки, исчезает через 7с
+        const topRight = document.createElement('div');
+        topRight.id = 'yt-top-right';
+        topRight.style.cssText = 'position:absolute;top:0;right:0;width:30%;height:30%;z-index:5;background:transparent;pointer-events:all;transition:opacity 1s ease';
+        slot.appendChild(topRight);
+
+        setTimeout(() => {
+          const tr = document.getElementById('yt-top-right');
+          if (tr) {
+            tr.style.opacity = '0';
+            tr.style.pointerEvents = 'none';
+            setTimeout(() => { if (tr && tr.parentNode) tr.parentNode.removeChild(tr); }, 1000);
+          }
+        }, 7000);
+
+        // Нижний блок — блокирует "Смотреть на YouTube", постоянный
         const bottomBlock = document.createElement('div');
         bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:20%;z-index:5;background:transparent;pointer-events:all';
         slot.appendChild(bottomBlock);
