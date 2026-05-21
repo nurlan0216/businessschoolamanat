@@ -809,7 +809,7 @@ function loadYtIframe(ytId, startSec) {
   const slot = $('video-slot'); slot.innerHTML = '';
   ytStartTime = Date.now() - startSec * 1000;
   const iframe = document.createElement('iframe');
-  iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&start=${Math.max(0, Math.round(startSec))}&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+  iframe.src = `https://www.youtube.com/embed/${ytId}?start=${Math.max(0, Math.round(startSec))}&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
   iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
   iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;pointer-events:auto';
   slot.appendChild(iframe);
