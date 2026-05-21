@@ -915,24 +915,28 @@ function loadVimeoIframe(link) {
 }
 
 function loadVkIframe(link) {
-  // Поддерживает форматы:
-  // https://vk.com/video-XXXXXXX_YYYYYYY
-  // https://vk.com/video?z=video-XXXXXXX_YYYYYYY
-  // https://vkvideo.ru/video-XXXXXXX_YYYYYYY
   const slot = $('video-slot'); slot.innerHTML = '';
   let embedUrl = '';
 
   const m1 = link.match(/video(-?\d+_\d+)/);
   if (m1) {
-    embedUrl = `https://vk.com/video_ext.php?oid=${m1[1].split('_')[0]}&id=${m1[1].split('_')[1]}&hd=2&autoplay=1`;
+    const parts = m1[1].split('_');
+    embedUrl = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&hd=2&autoplay=1&js_api=1`;
   } else {
     embedUrl = link;
   }
 
   const iframe = document.createElement('iframe');
   iframe.src = embedUrl;
-  iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+  // Полный набор разрешений для звука и fullscreen на iOS
+  iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock; web-share';
   iframe.allowFullscreen = true;
+  iframe.setAttribute('allowfullscreen', 'true');
+  iframe.setAttribute('webkitallowfullscreen', 'true');
+  iframe.setAttribute('mozallowfullscreen', 'true');
+  iframe.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture');
+  // referrerpolicy нужен чтобы VK разрешил звук на сторонних сайтах
+  iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
   iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
   slot.appendChild(iframe);
 }
