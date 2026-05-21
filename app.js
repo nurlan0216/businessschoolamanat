@@ -772,10 +772,32 @@ function playLesson(courseIdx, lessonAbsIdx) {
 
   if (link) {
     const ytId = extractYouTubeId(link);
-    if (ytId) { currentYtId = ytId; loadYtIframe(ytId, 0); }
-    else {
+    if (ytId) {
+      // YouTube
+      currentYtId = ytId;
+      loadYtIframe(ytId, 0);
+    } else if (link.includes('drive.google.com')) {
+      // Google Drive
+      loadDriveIframe(link);
+    } else if (link.includes('cloudflarestream.com') || link.includes('iframe.cloudflarestream.com')) {
+      // Cloudflare Stream
+      loadCloudflareIframe(link);
+    } else if (link.includes('vimeo.com')) {
+      // Vimeo
+      loadVimeoIframe(link);
+    } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
+      // VK Видео
+      loadVkIframe(link);
+    } else if (link.includes('bunny.net') || link.includes('b-cdn.net') || link.includes('iframe.mediadelivery.net')) {
+      // Bunny Stream
+      loadBunnyIframe(link);
+    } else if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(link)) {
+      // Прямой mp4/видео файл
+      loadDirectVideo(link);
+    } else {
+      // Любой другой iframe
       const iframe = document.createElement('iframe');
-      iframe.src = link.includes('drive.google.com') ? link.replace('/view', '/preview') : link;
+      iframe.src = link;
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
       iframe.allowFullscreen = true;
       iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
@@ -813,10 +835,22 @@ function loadYtIframe(ytId, startSec) {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   if (isIOS) {
+    // На iPhone YouTube iframe не воспроизводится — показываем превью с кнопкой открытия
     slot.innerHTML = `
-      <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;border-radius:12px;overflow:hidden">
-        <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" style="width:100%;max-height:65%;object-fit:cover">
-        <a href="https://youtu.be/${ytId}" target="_blank" rel="noopener" style="background:#ff0000;color:#fff;border-radius:10px;padding:13px 32px;font-size:15px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">▶ Смотреть на YouTube</a>
+      <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#000;overflow:hidden">
+        <div style="position:relative;width:100%;flex:1;overflow:hidden;cursor:pointer" onclick="window.open('https://youtu.be/${ytId}','_blank')">
+          <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25)">
+            <div style="width:64px;height:64px;background:rgba(255,0,0,0.92);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(0,0,0,0.5)">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+            </div>
+          </div>
+        </div>
+        <a href="https://youtu.be/${ytId}" target="_blank" rel="noopener"
+           style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:#ff0000;color:#fff;font-size:14px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+          Смотреть на YouTube
+        </a>
       </div>`;
   } else {
     const iframe = document.createElement('iframe');
@@ -825,6 +859,116 @@ function loadYtIframe(ytId, startSec) {
     iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
     slot.appendChild(iframe);
   }
+}
+
+function loadDriveIframe(link) {
+  const slot = $('video-slot'); slot.innerHTML = '';
+  let fileId = null;
+  const m1 = link.match(/\/file\/d\/([^\/\?&]+)/);
+  const m2 = link.match(/[?&]id=([^&]+)/);
+  if (m1) fileId = m1[1];
+  else if (m2) fileId = m2[1];
+
+  const embedUrl = fileId
+    ? `https://drive.google.com/file/d/${fileId}/preview`
+    : link.replace('/view', '/preview');
+
+  const iframe = document.createElement('iframe');
+  iframe.src = embedUrl;
+  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+  iframe.allowFullscreen = true;
+  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+  slot.appendChild(iframe);
+}
+
+function loadCloudflareIframe(link) {
+  const slot = $('video-slot'); slot.innerHTML = '';
+  // Извлекаем video ID из ссылки вида:
+  // https://iframe.cloudflarestream.com/VIDEO_ID
+  // https://cloudflarestream.com/VIDEO_ID/iframe
+  let src = link;
+  const m = link.match(/cloudflarestream\.com\/([a-f0-9]+)/i);
+  if (m) src = `https://iframe.cloudflarestream.com/${m[1]}?autoplay=true&preload=true`;
+
+  const iframe = document.createElement('iframe');
+  iframe.src = src;
+  iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+  iframe.allowFullscreen = true;
+  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+  slot.appendChild(iframe);
+}
+
+function loadVimeoIframe(link) {
+  const slot = $('video-slot'); slot.innerHTML = '';
+  const m = link.match(/vimeo\.com\/(\d+)/);
+  const videoId = m ? m[1] : '';
+  const src = videoId
+    ? `https://player.vimeo.com/video/${videoId}?autoplay=1&playsinline=1`
+    : link;
+
+  const iframe = document.createElement('iframe');
+  iframe.src = src;
+  iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+  iframe.allowFullscreen = true;
+  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+  slot.appendChild(iframe);
+}
+
+function loadVkIframe(link) {
+  // Поддерживает форматы:
+  // https://vk.com/video-XXXXXXX_YYYYYYY
+  // https://vk.com/video?z=video-XXXXXXX_YYYYYYY
+  // https://vkvideo.ru/video-XXXXXXX_YYYYYYY
+  const slot = $('video-slot'); slot.innerHTML = '';
+  let embedUrl = '';
+
+  const m1 = link.match(/video(-?\d+_\d+)/);
+  if (m1) {
+    embedUrl = `https://vk.com/video_ext.php?oid=${m1[1].split('_')[0]}&id=${m1[1].split('_')[1]}&hd=2&autoplay=1`;
+  } else {
+    embedUrl = link;
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.src = embedUrl;
+  iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+  iframe.allowFullscreen = true;
+  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+  slot.appendChild(iframe);
+}
+
+function loadBunnyIframe(link) {
+  // Поддерживает форматы:
+  // https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID
+  // https://video.bunnycdn.com/...
+  const slot = $('video-slot'); slot.innerHTML = '';
+  let src = link;
+
+  // Если ссылка не embed — пробуем построить embed URL
+  if (!link.includes('iframe.mediadelivery.net') && !link.includes('embed')) {
+    const m = link.match(/([a-f0-9\-]{36})/i);
+    if (m) src = `https://iframe.mediadelivery.net/embed/${m[1]}?autoplay=true`;
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.src = src;
+  iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+  iframe.allowFullscreen = true;
+  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+  slot.appendChild(iframe);
+}
+
+function loadDirectVideo(link) {
+  const slot = $('video-slot'); slot.innerHTML = '';
+  const video = document.createElement('video');
+  video.src = link;
+  video.controls = true;
+  video.playsinline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.preload = 'metadata';
+  video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;border-radius:inherit';
+  slot.appendChild(video);
 }
 const getElapsedSec = () => Math.round((Date.now() - ytStartTime) / 1000);
 
