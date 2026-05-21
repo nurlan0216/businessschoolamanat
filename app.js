@@ -796,6 +796,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
       loadDirectVideo(link);
     } else {
       // Любой другой iframe
+      hideTapZones();
       const iframe = document.createElement('iframe');
       iframe.src = link;
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
@@ -836,6 +837,7 @@ function loadYtIframe(ytId, startSec) {
 
   if (isIOS) {
     // На iPhone YouTube iframe не воспроизводится — показываем превью с кнопкой открытия
+    hideTapZones();
     slot.innerHTML = `
       <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#000;overflow:hidden">
         <div style="position:relative;width:100%;flex:1;overflow:hidden;cursor:pointer" onclick="window.open('https://youtu.be/${ytId}','_blank')">
@@ -853,6 +855,7 @@ function loadYtIframe(ytId, startSec) {
         </a>
       </div>`;
   } else {
+    showTapZones();
     const iframe = document.createElement('iframe');
     iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&start=${Math.max(0, Math.round(startSec))}&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
@@ -863,6 +866,7 @@ function loadYtIframe(ytId, startSec) {
 
 function loadDriveIframe(link) {
   const slot = $('video-slot'); slot.innerHTML = '';
+  hideTapZones();
   let fileId = null;
   const m1 = link.match(/\/file\/d\/([^\/\?&]+)/);
   const m2 = link.match(/[?&]id=([^&]+)/);
@@ -883,6 +887,7 @@ function loadDriveIframe(link) {
 
 function loadCloudflareIframe(link) {
   const slot = $('video-slot'); slot.innerHTML = '';
+  hideTapZones();
   // Извлекаем video ID из ссылки вида:
   // https://iframe.cloudflarestream.com/VIDEO_ID
   // https://cloudflarestream.com/VIDEO_ID/iframe
@@ -900,6 +905,7 @@ function loadCloudflareIframe(link) {
 
 function loadVimeoIframe(link) {
   const slot = $('video-slot'); slot.innerHTML = '';
+  hideTapZones();
   const m = link.match(/vimeo\.com\/(\d+)/);
   const videoId = m ? m[1] : '';
   // autoplay=0 — ждём нажатия пользователя, тогда звук работает сразу
@@ -917,28 +923,57 @@ function loadVimeoIframe(link) {
   slot.appendChild(iframe);
 }
 
+function hideTapZones() {
+  ['tap-left','tap-right','tap-center'].forEach(id => {
+    const el = $(id); if (el) el.style.pointerEvents = 'none';
+  });
+}
+function showTapZones() {
+  ['tap-left','tap-right','tap-center'].forEach(id => {
+    const el = $(id); if (el) el.style.pointerEvents = '';
+  });
+}
+
 function loadVkIframe(link) {
   const slot = $('video-slot'); slot.innerHTML = '';
-  let embedUrl = '';
 
+  // Скрываем tap-зоны — они мешают кликать по плееру VK
+  hideTapZones();
+
+  let embedUrl = '';
   const m1 = link.match(/video(-?\d+_\d+)/);
   if (m1) {
     const parts = m1[1].split('_');
-    embedUrl = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&hd=2&autoplay=1&js_api=1`;
+    // autoplay=0 — без него браузер не блокирует звук
+    embedUrl = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&hd=2&autoplay=0&js_api=1`;
   } else {
-    embedUrl = link;
+    embedUrl = link.replace('autoplay=1', 'autoplay=0');
   }
+
+  // Показываем заглушку с кнопкой Play — при нажатии загружается iframe
+  // Это единственный способ получить звук: iframe должен создаваться после клика пользователя
+  slot.innerHTML = `
+    <div id="vk-play-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;border-radius:inherit"
+         onclick="loadVkIframeNow('${embedUrl.replace(/'/g, "\\'")}', this)">
+      <div style="width:72px;height:72px;background:rgba(74,118,198,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 32px rgba(0,0,0,0.6);transition:transform .15s">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+      </div>
+      <span style="color:rgba(255,255,255,0.8);font-size:13px;font-family:'DM Sans',sans-serif">Нажмите для воспроизведения</span>
+    </div>`;
+}
+
+function loadVkIframeNow(embedUrl, overlay) {
+  // Убираем заглушку и вставляем iframe — именно после клика браузер разрешает звук
+  const slot = $('video-slot');
+  slot.innerHTML = '';
 
   const iframe = document.createElement('iframe');
   iframe.src = embedUrl;
-  // Полный набор разрешений для звука и fullscreen на iOS
   iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock; web-share';
   iframe.allowFullscreen = true;
   iframe.setAttribute('allowfullscreen', 'true');
   iframe.setAttribute('webkitallowfullscreen', 'true');
   iframe.setAttribute('mozallowfullscreen', 'true');
-  iframe.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture');
-  // referrerpolicy нужен чтобы VK разрешил звук на сторонних сайтах
   iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
   iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
   slot.appendChild(iframe);
@@ -949,6 +984,7 @@ function loadBunnyIframe(link) {
   // https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID
   // https://video.bunnycdn.com/...
   const slot = $('video-slot'); slot.innerHTML = '';
+  hideTapZones();
   let src = link;
 
   // Если ссылка не embed — пробуем построить embed URL
@@ -967,6 +1003,7 @@ function loadBunnyIframe(link) {
 
 function loadDirectVideo(link) {
   const slot = $('video-slot'); slot.innerHTML = '';
+  hideTapZones();
   const video = document.createElement('video');
   video.src = link;
   video.controls = true;
