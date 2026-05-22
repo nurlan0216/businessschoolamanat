@@ -887,65 +887,62 @@ function showUniversalPlayOverlay(onPlayCallback) {
 }
 // ========= УНИВЕРСАЛЬНЫЕ БЛОКИРАТОРЫ ЗОН YOUTUBE =========
 function installYtBlockers(slot) {
+  // Блокировщики вешаем на video-container (у него position:relative + overflow:hidden)
   const container = $('video-container');
   if (!container) return;
 
   // Удаляем старые блокировщики
-  container.querySelectorAll('.yt-blocker').forEach(function(el) { el.remove(); });
+  container.querySelectorAll('.yt-blocker').forEach(el => el.remove());
 
-  // Размер контейнера
+  // Размер контейнера — именно он виден пользователю
   const sw = container.offsetWidth;
   const sh = container.offsetHeight;
   const aspect = 16 / 9;
   let vw, vh, ox, oy;
   if (sw / sh > aspect) {
-    // Pillarbox (чёрные полосы слева/справа)
     vh = sh; vw = Math.round(sh * aspect);
     ox = Math.round((sw - vw) / 2); oy = 0;
   } else {
-    // Letterbox (чёрные полосы сверху/снизу)
     vw = sw; vh = Math.round(sw / aspect);
     ox = 0; oy = Math.round((sh - vh) / 2);
   }
 
-  // Общий стиль — top/left всегда, не используем bottom чтобы не путаться
-  // YouTube UI зоны (% от реального видео):
-  //   Верх: 0% – 18% высоты (название + кнопки)
-  //   Низ:  82% – 100% высоты (прогресс-бар, кнопки)
-  //   Fullscreen кнопка: правые ~13% снизу
-
-  const topY  = oy;                          // верх видео
-  const botY  = oy + Math.round(vh * 0.82); // начало нижней зоны
-  const topH  = Math.round(vh * 0.18);      // высота верхней зоны
-  const botH  = Math.round(vh * 0.18);      // высота нижней зоны
-  const fsW   = Math.round(vw * 0.14);      // ширина зоны fullscreen кнопки
-  const botW  = vw - fsW;                   // ширина остатка нижней зоны
-
-  function makeZone(x, y, w, h, extra) {
-    var d = document.createElement('div');
-    d.className = 'yt-blocker';
-    d.style.cssText = 'position:absolute;left:' + x + 'px;top:' + y + 'px;' +
-      'width:' + w + 'px;height:' + h + 'px;' +
-      'z-index:55;background:transparent;pointer-events:auto;' + (extra||'');
-    return d;
-  }
-
-  // ── Верх-лево: название видео + канал (86% ширины) ──
-  container.appendChild(makeZone(ox, topY, Math.round(vw * 0.86), topH, 'cursor:default'));
+  // ── Верх-лево: название видео + канал (72% × 22%) ──
+  const tl = document.createElement('div');
+  tl.className = 'yt-blocker yt-blocker-tl';
+  tl.style.cssText = 'position:absolute;top:' + oy + 'px;left:' + ox + 'px;' +
+    'width:' + Math.round(vw * 0.72) + 'px;height:' + Math.round(vh * 0.22) + 'px;' +
+    'z-index:55;background:transparent;pointer-events:auto;cursor:default';
+  container.appendChild(tl);
 
   // ── Верх-право: CC/звук/настройки — исчезает через 7с ──
-  var tr = makeZone(ox + Math.round(vw * 0.86), topY, Math.round(vw * 0.14), topH, 'cursor:default;transition:opacity 1s');
+  const tr = document.createElement('div');
+  tr.className = 'yt-blocker yt-blocker-tr';
+  tr.style.cssText = 'position:absolute;top:' + oy + 'px;left:' + (ox + Math.round(vw * 0.72)) + 'px;' +
+    'width:' + Math.round(vw * 0.28) + 'px;height:' + Math.round(vh * 0.22) + 'px;' +
+    'z-index:55;background:transparent;pointer-events:auto;cursor:default;transition:opacity 1s ease';
   container.appendChild(tr);
-  setTimeout(function() {
-    tr.style.opacity = '0'; tr.style.pointerEvents = 'none';
-    setTimeout(function() { tr.remove(); }, 1000);
-  }, 7000);
+  setTimeout(function() { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(function() { tr.remove(); }, 1000); }, 7000);
 
-  // ── Низ-лево: share/часы/YouTube-лого (86% ширины) ──
-  container.appendChild(makeZone(ox, botY, botW, botH, 'cursor:default'));
+  // ── Низ (без правого угла): share/часы/YouTube-лого — 70% ширины ──
+  const botH = Math.round(vh * 0.25);
+  const botW = Math.round(vw * 0.70);
+  const bot = document.createElement('div');
+  bot.className = 'yt-blocker yt-blocker-bot';
+  bot.style.cssText = 'position:absolute;bottom:' + oy + 'px;left:' + ox + 'px;' +
+    'width:' + botW + 'px;height:' + botH + 'px;' +
+    'z-index:55;background:transparent;pointer-events:auto;cursor:default';
+  container.appendChild(bot);
 
-  // ── Правый нижний угол: fullscreen кнопка YouTube → наш fullscreen ──
-  var fsZone = makeZone(ox + botW, botY, fsW, botH, 'cursor:pointer');
+  // ── Правый нижний угол: кнопка fullscreen YouTube — перехватываем → наш fullscreen ──
+  // Зона: 30% × 25% от размера видео
+  const fsW = Math.round(vw * 0.30);
+  const fsH = botH; // 25% высоты
+  const fsZone = document.createElement('div');
+  fsZone.className = 'yt-blocker yt-blocker-fs';
+  fsZone.style.cssText = 'position:absolute;bottom:' + oy + 'px;left:' + (ox + botW) + 'px;' +
+    'width:' + fsW + 'px;height:' + fsH + 'px;' +
+    'z-index:55;background:transparent;pointer-events:auto;cursor:pointer';
   fsZone.addEventListener('click', function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
   fsZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
   container.appendChild(fsZone);
