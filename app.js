@@ -1,5 +1,5 @@
 /* ============================================================
-   BUSINESS SCHOOL AMANAT — APP LOGIC v3.3 (SECURITY + CLOUD PROGRESS + ERROR PAGES)
+   BUSINESS SCHOOL AMANAT — APP LOGIC v3.2 (UPDATED)
    ============================================================ */
 
 'use strict';
@@ -7,7 +7,7 @@
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
 const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbxS5Be4kiO3OD9LDwxfnUz56waz2aQMNfMrj3wmKz0FIFlaNsiJdypy4V2xukhlI07k/exec';
-const ADMIN_PASSWORD_HASH = '7404297e91a4ab5b540fceefb2c0030cc24965b1ac4591c774435421b5d8b9ad'; // SHA-256, пароль не хранится в открытом виде
+const ADMIN_PASSWORD   = 'N20020216$$';
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
 // ══════════════════════════════ STATE ══════════════════════════════
@@ -61,20 +61,20 @@ const T = {
     steps: ['Подключение к серверу...','Поиск в базе данных...','Проверка ИИН...','Проверка оплаты...','Проверка доступа...','Выдача доступа...'],
     errEmpty: 'Заполните все поля', errIin: 'ИИН должен содержать 12 цифр',
     errPhone: 'Введите корректный номер телефона',
-    errNotFound: '❌ ИИН не найден в базе. <a href="__TG__" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Написать куратору</a>',
-    errNotPaid: '❌ Оплата не подтверждена. <a href="__TG__" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Написать куратору</a>',
-    errNoAccess: '❌ Доступ не разрешён. <a href="__TG__" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Написать куратору</a>',
+    errNotFound: '❌ ИИН не найден в базе. Обратитесь к куратору.',
+    errNotPaid: '❌ Оплата не подтверждена. Обратитесь к куратору.',
+    errNoAccess: '❌ Доступ не разрешён. Обратитесь к куратору.',
     errNetwork: '⚠ Ошибка соединения. Проверьте интернет и попробуйте снова.',
     errSheetUnavailable: '⚠ Сервер данных временно недоступен. Попробуйте позже или обратитесь к куратору.',
     ok: 'Доступ открыт! Добро пожаловать,', hello: 'Привет,',
     savedOk: '✅ Сохранено!', wrongPw: '❌ Неверный пароль',
     go: 'Открыть', lessons: 'уроков', lesson: 'урок', watched: 'просмотрено',
-    prev: '← Предыдущий урок', next: 'Следующий урок →', fileDownload: 'Скачать файл',
+    prev: 'Пред.', next: 'След.', fileDownload: 'Скачать файл',
     noCourses: 'Курсы загружаются... Обновите страницу если долго.',
     progressCourse: 'Прогресс курса', of: 'из', lessonsWatched: 'уроков просмотрено',
     searchLessons: 'Поиск по урокам...', coursesSearch: 'Поиск курсов...',
     noResults: 'Ничего не найдено',
-    mnavCourses: 'Курсы', mnavCat: 'Материалы', mnavHelp: 'Помощь',
+    mnavCourses: 'Курсы', mnavCat: 'Каталог', mnavHelp: 'Помощь',
     completionTitle: 'Курс завершён! 🎉', completionSub: 'Вы просмотрели все уроки. Отличная работа!',
     linkNotSet: 'Ссылка не настроена',
     imgDownload: 'Скачать', imgOpenOrig: 'Открыть оригинал',
@@ -110,12 +110,12 @@ const T = {
     ok: 'Рұқсат берілді! Қош келдіңіз,', hello: 'Сәлем,',
     savedOk: '✅ Сақталды!', wrongPw: '❌ Қате пароль',
     go: 'Ашу', lessons: 'сабақ', lesson: 'сабақ', watched: 'көрілді',
-    prev: '← Алдыңғы', next: 'Келесі →', fileDownload: 'Файлды жүктеу',
+    prev: 'Алдыңғы', next: 'Келесі', fileDownload: 'Файлды жүктеу',
     noCourses: 'Сабақтар жүктелуде... Беттi жаңартыңыз.',
     progressCourse: 'Курс барысы', of: '/', lessonsWatched: 'сабақ көрілді',
     searchLessons: 'Сабақтарды іздеу...', coursesSearch: 'Курстарды іздеу...',
     noResults: 'Ештеңе табылмады',
-    mnavCourses: 'Курстар', mnavCat: 'Материалдар', mnavHelp: 'Көмек',
+    mnavCourses: 'Курстар', mnavCat: 'Каталог', mnavHelp: 'Көмек',
     completionTitle: 'Курс аяқталды! 🎉', completionSub: 'Барлық сабақты көрдіңіз. Керемет жұмыс!',
     linkNotSet: 'Сілтеме орнатылмаған',
     imgDownload: 'Жүктеу', imgOpenOrig: 'Түпнұсқаны ашу',
@@ -337,7 +337,7 @@ async function loadSheet2() {
     } finally {
       clearTimeout(timeoutId);
     }
-    if (!res.ok) { console.error('Sheet2 HTTP error', res.status); showNetworkError('http_' + res.status); return; }
+    if (!res.ok) { console.error('Sheet2 HTTP error', res.status); showSheetError(); return; }
     const csv  = await res.text();
     const rows = parseCSV(csv);
 
@@ -426,53 +426,6 @@ function parseLesson(raw) {
   return { type: 'video', url: raw, name: '' };
 }
 
-// ══════════════════════════════ NETWORK ERROR PAGE ═══════════════
-function showNetworkError(code) {
-  // Показываем красивый экран ошибки с кнопкой "Попробовать снова"
-  // Не трогаем страницу логина — показываем оверлей поверх
-  let overlay = $('network-error-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'network-error-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(6,6,8,0.92);backdrop-filter:blur(8px)';
-    overlay.innerHTML = `
-      <div style="background:#0f0f16;border:1px solid rgba(255,255,255,0.08);border-radius:22px;padding:40px 32px;max-width:420px;width:100%;text-align:center;font-family:'Syne',sans-serif">
-        <div style="font-size:52px;margin-bottom:16px">⚠️</div>
-        <h2 id="net-err-title" style="color:#f5c842;font-size:20px;font-weight:800;margin-bottom:10px;letter-spacing:-0.3px">Сервер данных недоступен</h2>
-        <p id="net-err-sub" style="color:#8080a8;font-size:13px;line-height:1.65;margin-bottom:8px">Не удалось загрузить данные платформы. Проверьте интернет-соединение.</p>
-        <p id="net-err-code" style="color:#444466;font-size:11px;font-family:monospace;margin-bottom:28px"></p>
-        <button id="net-err-retry" onclick="retryLoadSheet()" style="width:100%;padding:13px;background:linear-gradient(135deg,#f5c842,#e8b430);color:#000;font-weight:800;font-size:14px;border:none;border-radius:12px;cursor:pointer;font-family:'Syne',sans-serif;letter-spacing:0.3px;transition:opacity .2s">
-          🔄 Попробовать снова
-        </button>
-        <button onclick="hideNetworkError()" style="width:100%;padding:10px;margin-top:10px;background:transparent;color:#8080a8;font-size:13px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;font-family:'Syne',sans-serif">
-          Закрыть
-        </button>
-      </div>`;
-    document.body.appendChild(overlay);
-  }
-  // Обновляем текст ошибки
-  const codeEl = $('net-err-code');
-  if (codeEl && code) codeEl.textContent = 'Код ошибки: ' + code;
-  overlay.style.display = 'flex';
-}
-
-function hideNetworkError() {
-  const overlay = $('network-error-overlay');
-  if (overlay) overlay.style.display = 'none';
-}
-
-async function retryLoadSheet() {
-  const btn = $('net-err-retry');
-  if (btn) { btn.textContent = '⏳ Загружаем...'; btn.disabled = true; }
-  hideNetworkError();
-  await loadSheet2();
-  if (btn) { btn.textContent = '🔄 Попробовать снова'; btn.disabled = false; }
-}
-
-function showSheetError() {
-  showNetworkError('sheet_unavailable');
-}
-
 // ══════════════════════════════ APPLY LINKS ═══════════════════════
 function applyLinks() {
   const setLink = (id, url, fallback) => {
@@ -502,54 +455,8 @@ const getWatchKey = (ci, li) => `${ci}-${li}`;
 const isWatched   = (ci, li) => !!watchedLessons[getWatchKey(ci, li)];
 
 function markWatched(ci, li) {
-  const key = getWatchKey(ci, li);
-  if (watchedLessons[key]) return; // уже отмечен — не дублируем запрос
-  watchedLessons[key] = true;
+  watchedLessons[getWatchKey(ci, li)] = true;
   localStorage.setItem('watched_lessons', JSON.stringify(watchedLessons));
-  // Сохраняем прогресс в Google Sheets через лог-скрипт
-  syncProgressToSheet(ci, li);
-}
-
-function syncProgressToSheet(ci, li) {
-  if (!LOG_SCRIPT_URL || LOG_SCRIPT_URL.includes('ВАШИ_ID')) return;
-  let iin = null;
-  try { iin = sessionStorage.getItem('bs_iin'); } catch(_) {}
-  if (!iin || !currentUser) return;
-  const course = courses[ci];
-  if (!course) return;
-  const courseName = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
-  try {
-    fetch(LOG_SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        _type: 'progress',
-        iin, name: currentUser,
-        courseIdx: ci, lessonIdx: li,
-        courseName,
-        watchedJson: JSON.stringify(watchedLessons),
-        date: new Date().toLocaleDateString('ru-RU'),
-        time: new Date().toLocaleTimeString('ru-RU')
-      })
-    });
-  } catch(e) { console.warn('Progress sync error:', e); }
-}
-
-async function restoreProgressFromSheet(iin) {
-  if (!LOG_SCRIPT_URL || LOG_SCRIPT_URL.includes('ВАШИ_ID') || !iin) return;
-  try {
-    // Запрашиваем сохранённый прогресс через параметр GET
-    const url = LOG_SCRIPT_URL + '?action=getProgress&iin=' + encodeURIComponent(iin);
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && data.watchedJson) {
-      const remote = JSON.parse(data.watchedJson);
-      // Мерджим: берём объединение localStorage + удалённого прогресса
-      Object.assign(watchedLessons, remote);
-      localStorage.setItem('watched_lessons', JSON.stringify(watchedLessons));
-    }
-  } catch(e) { /* тихо — прогресс из localStorage всё равно есть */ }
 }
 function getLessons(idx) {
   const c = courses[idx];
@@ -635,27 +542,6 @@ function renderCoursesGrid() {
     const delay      = fi * 0.06;
     const prog       = getCourseProgress(idx);
 
-    // ── Умный бейджик: меняется в зависимости от прогресса студента ──
-    let startBadge = '';
-    if (!query) {
-      if (prog.pct === 100) {
-        // Курс завершён — показываем галочку
-        startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,#22c48a,#1aab7a);color:#fff;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(34,196,138,0.4)">Завершён ✅</div>`;
-      } else if (prog.watched > 0 && prog.pct < 100) {
-        // Студент начал, но не завершил — "Продолжай"
-        startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,${color},${lightenHex(color,20)});color:#fff;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px ${hexToRgba(color,0.4)}">Продолжай 📍</div>`;
-      } else if (fi === 0) {
-        // Первый курс, ещё не начат
-        startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(245,200,66,0.4)">Начни здесь 👆</div>`;
-      } else {
-        // Предыдущий курс завершён — этот следующий шаг
-        const prevProg = fi > 0 ? getCourseProgress(courses.indexOf(filtered[fi - 1])) : null;
-        if (prevProg && prevProg.pct === 100) {
-          startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,#9d4ed0,#7b2dbf);color:#fff;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(157,78,208,0.4)">Следующий →</div>`;
-        }
-      }
-    }
-
     const iconHtml = course.iconUrl
       ? `<img src="${course.iconUrl}" alt="${name}" onerror="this.style.display='none';this.parentNode.textContent='${initials}'">`
       : initials;
@@ -671,8 +557,7 @@ function renderCoursesGrid() {
         </div>
       </div>` : '';
 
-    return `<div class="platform-card" style="--card-accent:${color};--card-glow:${hexToRgba(color,0.06)};animation-delay:${delay}s;position:relative" onclick="openLesson(${idx})">
-      ${startBadge}
+    return `<div class="platform-card" style="--card-accent:${color};--card-glow:${hexToRgba(color,0.06)};animation-delay:${delay}s" onclick="openLesson(${idx})">
       <div class="pc-body">
         <div class="pc-logo">
           <div class="pc-icon" style="background:linear-gradient(140deg,${color},${darkenHex(color,20)})">${iconHtml}</div>
@@ -745,51 +630,8 @@ function updateModalProgress(idx) {
   if (sub)  sub.textContent  = `${prog.watched} ${t('of')} ${prog.total} ${t('lessonsWatched')}`;
   const sec = $('modal-progress-section');
   if (sec) sec.style.display = prog.total > 0 ? 'block' : 'none';
-
   const banner = $('completion-banner');
-  if (!banner) return;
-
-  const isCompleted = prog.total > 0 && prog.watched === prog.total;
-  banner.classList.toggle('show', isCompleted);
-
-  // Показываем следующий курс если курс завершён
-  const nextIdx = idx + 1;
-  let nextCourseHtml = '';
-  if (isCompleted && courses[nextIdx]) {
-    const nc      = courses[nextIdx];
-    const ncName  = lang === 'kz' ? (nc.nameKZ || nc.nameRU) : (nc.nameRU || nc.nameKZ);
-    const ncColor = nc.hexColor || DEFAULT_COLORS[nextIdx % DEFAULT_COLORS.length];
-    const ncLessons = (lang === 'kz' ? nc.lessonsKZ : nc.lessonsRU).filter(l => l.type === 'video').length;
-    const ncIcon  = nc.iconUrl
-      ? `<img src="${nc.iconUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.style.display='none'">`
-      : ncName.substring(0, 2).toUpperCase();
-    nextCourseHtml = `
-      <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.07)">
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.5px;text-transform:uppercase;font-weight:700">
-          ${lang === 'kz' ? 'Келесі курс 👇' : 'Следующий курс 👇'}
-        </p>
-        <div onclick="closeLesson();setTimeout(()=>openLesson(${nextIdx}),220)"
-          style="display:flex;align-items:center;gap:12px;background:${hexToRgba(ncColor,0.1)};border:1px solid ${hexToRgba(ncColor,0.25)};border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .2s"
-          onmouseover="this.style.background='${hexToRgba(ncColor,0.18)}'"
-          onmouseout="this.style.background='${hexToRgba(ncColor,0.1)}'">
-          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(140deg,${ncColor},${darkenHex(ncColor,20)});display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;flex-shrink:0;overflow:hidden">${ncIcon}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(ncName)}</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">${ncLessons} ${t('lessons')}</div>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${ncColor}" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </div>
-      </div>`;
-  }
-
-  // Вставляем карточку следующего курса в баннер
-  let nextSlot = $('completion-next-course');
-  if (!nextSlot && banner) {
-    nextSlot = document.createElement('div');
-    nextSlot.id = 'completion-next-course';
-    banner.appendChild(nextSlot);
-  }
-  if (nextSlot) nextSlot.innerHTML = nextCourseHtml;
+  if (banner) banner.classList.toggle('show', prog.total > 0 && prog.watched === prog.total);
 }
 
 // ══════════════════════════════ LESSON LIST ═══════════════════════
@@ -899,109 +741,6 @@ function closeImageViewer() {
   setTimeout(() => { $('img-viewer-src').src = ''; }, 300);
 }
 
-// ══════════════════════════ YOUTUBE RICH PREVIEW ══════════════════
-// Показывает красивое превью YouTube с названием и логотипом канала.
-// После нажатия Play — запускает чистый iframe без лишних элементов.
-async function showYouTubePreview(slot, ytId, fallbackTitle) {
-  // Сразу показываем превью (thumbnail высокого качества)
-  const thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-
-  // Рисуем скелет превью мгновенно
-  slot.innerHTML = `
-    <div id="yt-preview" style="position:absolute;inset:0;background:#000;display:flex;flex-direction:column;overflow:hidden;border-radius:inherit">
-      <!-- Превью картинка -->
-      <div style="position:relative;flex:1;overflow:hidden;cursor:pointer" id="yt-thumb-area">
-        <img id="yt-thumb-img" src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover;display:block">
-        <!-- Тёмный градиент снизу -->
-        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05) 40%,rgba(0,0,0,0.75) 100%)"></div>
-        <!-- Кнопка Play по центру -->
-        <div id="yt-play-btn" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-          <div style="width:72px;height:72px;background:rgba(255,0,0,0.92);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 32px rgba(0,0,0,0.6);transition:transform .15s">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="margin-left:4px"><polygon points="5 3 19 12 5 21"/></svg>
-          </div>
-        </div>
-        <!-- Название канала + лого снизу слева -->
-        <div id="yt-channel-bar" style="position:absolute;bottom:10px;left:10px;right:10px;display:flex;align-items:center;gap:9px;opacity:0;transition:opacity .4s">
-          <img id="yt-channel-logo" src="" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.25);flex-shrink:0;display:none">
-          <div style="flex:1;min-width:0">
-            <div id="yt-video-title" style="color:#fff;font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 6px rgba(0,0,0,0.8)">${escHtml(fallbackTitle)}</div>
-            <div id="yt-channel-name" style="color:rgba(255,255,255,0.7);font-size:11px;font-family:'DM Sans',sans-serif;margin-top:1px"></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  // Клик по превью — запуск плеера
-  const thumbArea = document.getElementById('yt-thumb-area');
-  if (thumbArea) {
-    let playerStarted = false;
-    const startPlayer = () => {
-      if (playerStarted) return;
-      playerStarted = true;
-
-      slot.innerHTML = '';
-      currentYtId = ytId;
-      ytStartTime = Date.now();
-
-      // Сначала скрываем тап-зоны — чтобы не мешали первому нажатию на iframe
-      hideTapZones();
-
-      const iframe = document.createElement('iframe');
-      iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
-      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-      iframe.setAttribute('allowfullscreen', '');
-      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-      slot.appendChild(iframe);
-
-      // Блокируем только кнопку "Смотреть на YouTube" внизу — тонкая полоска
-      const bottomBlock = document.createElement('div');
-      bottomBlock.id = 'yt-bottom-block';
-      bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:38px;z-index:5;background:transparent;pointer-events:all;touch-action:none';
-      bottomBlock.addEventListener('touchstart',  e => e.preventDefault(), { passive: false });
-      bottomBlock.addEventListener('touchend',    e => e.preventDefault(), { passive: false });
-      bottomBlock.addEventListener('click',       e => e.stopPropagation());
-      slot.appendChild(bottomBlock);
-
-      // Включаем тап-зоны через 1.5с — когда видео уже запущено
-      setTimeout(() => showTapZones(), 1500);
-    };
-    thumbArea.addEventListener('click', startPlayer, { once: true });
-    thumbArea.addEventListener('touchend', function(e) {
-      e.preventDefault(); startPlayer();
-    }, { once: true, passive: false });
-  }
-
-  // Загружаем метаданные канала через noembed (прокси oEmbed, без CORS)
-  try {
-    const oembed = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${ytId}`);
-    if (oembed.ok) {
-      const data = await oembed.json();
-      const bar = document.getElementById('yt-channel-bar');
-      if (!bar) return; // превью уже закрыто
-
-      const titleEl = document.getElementById('yt-video-title');
-      const chanEl  = document.getElementById('yt-channel-name');
-      const logoEl  = document.getElementById('yt-channel-logo');
-
-      if (titleEl && data.title)        titleEl.textContent = data.title;
-      if (chanEl  && data.author_name)  chanEl.textContent  = data.author_name;
-
-      // Логотип канала через unavatar (публичный сервис, без API ключа)
-      if (logoEl && data.author_name) {
-        logoEl.src = `https://unavatar.io/youtube/${encodeURIComponent(data.author_name)}`;
-        logoEl.style.display = 'block';
-        logoEl.onerror = () => { logoEl.style.display = 'none'; };
-      }
-
-      if (bar) bar.style.opacity = '1';
-    }
-  } catch (_) {
-    // Если oEmbed недоступен — показываем хотя бы название урока
-    const bar = document.getElementById('yt-channel-bar');
-    if (bar) bar.style.opacity = '1';
-  }
-}
-
 // ===== UNIVERSAL OVERLAY ДЛЯ ЗАПУСКА ВИДЕО ======
 function showUniversalPlayOverlay(onPlayCallback) {
   const slot = $('video-slot');
@@ -1049,8 +788,41 @@ function playLesson(courseIdx, lessonAbsIdx) {
   if (link) {
     const ytId = extractYouTubeId(link);
     if (ytId) {
-      // Показываем превью с названием и логотипом канала через YouTube oEmbed
-      showYouTubePreview(slot, ytId, lessonName);
+      showUniversalPlayOverlay(() => {
+        slot.innerHTML = '';
+        hideTapZones();
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+
+        // Левый верхний блок — блокирует канал/название, постоянный
+        const topLeft = document.createElement('div');
+        topLeft.style.cssText = 'position:absolute;top:0;left:0;width:70%;height:30%;z-index:5;background:transparent;pointer-events:all';
+        slot.appendChild(topLeft);
+
+        // Правый верхний блок — блокирует звук/CC/настройки, исчезает через 7с
+        const topRight = document.createElement('div');
+        topRight.id = 'yt-top-right';
+        topRight.style.cssText = 'position:absolute;top:0;right:0;width:30%;height:30%;z-index:5;background:transparent;pointer-events:all;transition:opacity 1s ease';
+        slot.appendChild(topRight);
+
+        setTimeout(() => {
+          const tr = document.getElementById('yt-top-right');
+          if (tr) {
+            tr.style.opacity = '0';
+            tr.style.pointerEvents = 'none';
+            setTimeout(() => { if (tr && tr.parentNode) tr.parentNode.removeChild(tr); }, 1000);
+          }
+        }, 7000);
+
+        // Нижний блок — блокирует "Смотреть на YouTube", постоянный
+        const bottomBlock = document.createElement('div');
+        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:20%;z-index:5;background:transparent;pointer-events:all';
+        slot.appendChild(bottomBlock);
+      });
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
       let embedUrl = link;
       const mClip  = link.match(/clip(-?\d+)_(\d+)/);
@@ -1277,14 +1049,12 @@ function loadVimeoIframe(link) {
 
 function hideTapZones() {
   ['tap-left','tap-right','tap-center'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.pointerEvents = 'none';
+    const el = $(id); if (el) el.style.pointerEvents = 'none';
   });
 }
 function showTapZones() {
   ['tap-left','tap-right','tap-center'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.pointerEvents = '';
+    const el = $(id); if (el) el.style.pointerEvents = '';
   });
 }
 
@@ -1363,151 +1133,26 @@ function loadDirectVideo(link) {
 }
 const getElapsedSec = () => Math.round((Date.now() - ytStartTime) / 1000);
 
-// ══════════════════════════════ FULLSCREEN BLOCKER ZONES ════════════
-function createFullscreenBlockers() {
-  // Удаляем старые, если есть
-  ['fs-blocker-top','fs-blocker-bottom'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.parentNode.removeChild(el);
-  });
-
-  const top = document.createElement('div');
-  top.id = 'fs-blocker-top';
-  top.style.cssText = [
-    'position:fixed',
-    'top:0','left:0','width:100%',
-    'height:15%',          // высота верхней зоны — подберите под вашу шапку YouTube
-    'z-index:2147483647',  // максимальный z-index
-    'background:transparent',
-    'pointer-events:all',
-    '-webkit-tap-highlight-color:transparent',
-    'touch-action:none',
-  ].join(';');
-
-  const bottom = document.createElement('div');
-  bottom.id = 'fs-blocker-bottom';
-  bottom.style.cssText = [
-    'position:fixed',
-    'bottom:0','left:0','width:100%',
-    'height:12%',          // высота нижней зоны — подберите под панель управления YouTube
-    'z-index:2147483647',
-    'background:transparent',
-    'pointer-events:all',
-    '-webkit-tap-highlight-color:transparent',
-    'touch-action:none',
-  ].join(';');
-
-  // Блокируем все касания — не пускаем в iframe
-  [top, bottom].forEach(el => {
-    el.addEventListener('touchstart',  e => e.preventDefault(), { passive: false });
-    el.addEventListener('touchend',    e => e.preventDefault(), { passive: false });
-    el.addEventListener('touchmove',   e => e.preventDefault(), { passive: false });
-    el.addEventListener('click',       e => e.stopPropagation());
-    el.addEventListener('pointerdown', e => e.preventDefault());
-  });
-
-  document.body.appendChild(top);
-  document.body.appendChild(bottom);
-}
-
-function removeFullscreenBlockers() {
-  ['fs-blocker-top','fs-blocker-bottom'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.parentNode.removeChild(el);
-  });
-}
-
-// Слушаем события fullscreen — показываем/скрываем блокираторы
-;(function initFullscreenBlockerListener() {
-  const fsEvents = ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'];
-  fsEvents.forEach(evt => {
-    document.addEventListener(evt, () => {
-      const isFs = !!(
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-      );
-      if (isFs) {
-        createFullscreenBlockers();
-      } else {
-        removeFullscreenBlockers();
-      }
-    });
-  });
-})();
-
 function setupTapZones() {
-  const left   = $('tap-left');
-  const right  = $('tap-right');
-  const center = $('tap-center');
+  const left = $('tap-left'), right = $('tap-right'), center = $('tap-center');
   const container = $('video-container');
   if (!left || !right || !center) return;
-
-  // Сброс старых обработчиков — клонируем элементы
-  const newLeft   = left.cloneNode(true);
-  const newRight  = right.cloneNode(true);
-  const newCenter = center.cloneNode(true);
-  left.parentNode.replaceChild(newLeft, left);
-  right.parentNode.replaceChild(newRight, right);
-  center.parentNode.replaceChild(newCenter, center);
-
-  // touch-action: manipulation — убирает задержку 300ms на мобильных
-  [newLeft, newRight, newCenter].forEach(el => {
-    el.style.touchAction = 'manipulation';
-    el.style.webkitTapHighlightColor = 'transparent';
-    el.style.pointerEvents = '';
-  });
-
-  let tapCount = 0;
-  let tapZone  = null;
-  let tapTimerId = null;
-
-  function handleTap(zone) {
-    if (tapZone && tapZone !== zone) {
-      // Тапнули другую зону — сбрасываем
-      clearTimeout(tapTimerId);
-      tapCount = 0; tapZone = null;
-    }
-    tapCount++;
-    tapZone = zone;
-
-    if (tapCount >= 2) {
-      // Двойной тап — перемотка
-      clearTimeout(tapTimerId);
-      tapCount = 0; tapZone = null;
-      if (!currentYtId) return;
-      if (zone === 'left')  loadYtIframe(currentYtId, Math.max(0, getElapsedSec() - 10));
-      if (zone === 'right') loadYtIframe(currentYtId, getElapsedSec() + 10);
+  function handle(zone) {
+    if (tapTimer) {
+      clearTimeout(tapTimer); tapTimer = null;
+      if (zone === 'left'  && currentYtId) loadYtIframe(currentYtId, Math.max(0, getElapsedSec() - 10));
+      if (zone === 'right' && currentYtId) loadYtIframe(currentYtId, getElapsedSec() + 10);
     } else {
-      // Одиночный тап — ждём второго, иначе fullscreen
-      tapTimerId = setTimeout(() => {
-        tapCount = 0; tapZone = null;
-        if (zone === 'center') {
-          if (container) {
-            if      (container.requestFullscreen)       container.requestFullscreen();
-            else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-          }
-        }
-      }, 300);
+      tapTimer = setTimeout(() => {
+        tapTimer = null;
+        if (container.requestFullscreen) container.requestFullscreen();
+        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+      }, 280);
     }
   }
-
-  function addTap(el, zone) {
-    el.addEventListener('touchend', e => {
-      e.preventDefault();
-      e.stopPropagation();
-      handleTap(zone);
-    }, { passive: false });
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      handleTap(zone);
-    });
-  }
-
-  addTap(newLeft,   'left');
-  addTap(newRight,  'right');
-  addTap(newCenter, 'center');
+  left.onclick = () => handle('left');
+  right.onclick = () => handle('right');
+  center.onclick = () => handle('center');
 }
 function prevLesson() {
   const lessons = getLessons(currentCourseIdx);
@@ -1686,9 +1331,6 @@ async function doLogin() {
     sessionStorage.setItem('bs_iin',  iin);
   } catch (_) {}
 
-  // Подтягиваем облачный прогресс при первом входе
-  await restoreProgressFromSheet(iin);
-
   $('login-success').textContent   = t('ok') + ' ' + currentUser + '!';
   $('login-success').style.display = 'block';
   await loadSheet2();
@@ -1703,8 +1345,7 @@ function finishLogin(btn) {
 }
 function showMsg(type, msg) {
   const el = $(type === 'error' ? 'login-error' : 'login-success');
-  el.innerHTML = msg.replace(/__TG__/g, tgUrl || '#');
-  el.style.display = 'block';
+  el.textContent = msg; el.style.display = 'block';
 }
 function markStep(i) {
   const el = $(`ps${i}`); if (el) el.classList.add('done');
@@ -1782,14 +1423,8 @@ function openAdminPw() {
   $('admin-pw-modal').classList.add('show');
   setTimeout(() => $('admin-pw-input').focus(), 200);
 }
-async function checkAdminPw() {
-  const input = $('admin-pw-input').value;
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  if (hashHex === ADMIN_PASSWORD_HASH) {
+function checkAdminPw() {
+  if ($('admin-pw-input').value === ADMIN_PASSWORD) {
     closeModal('admin-pw-modal');
     openAdmin();
   } else {
@@ -1904,8 +1539,6 @@ async function tryRestoreSession() {
   if (!savedUser || !savedIin) return false;
   
   currentUser = savedUser;
-  // Пробуем восстановить прогресс из облака (мержим с localStorage)
-  await restoreProgressFromSheet(savedIin);
   await loadSheet2();
   showLessons();
   return true;
@@ -1920,29 +1553,4 @@ async function tryRestoreSession() {
     $('login-page').style.display   = 'flex';
     $('lessons-page').style.display = 'none';
   }
-})();
-
-// ══════════════════════════ VIDEO NAV AUTO-HIDE ═══════════════════
-// Скрываем кнопки "Предыдущий / Следующий урок" при скролле вниз,
-// показываем снова при скролле вверх — чтобы не перекрывали текст
-(function initVideoNavHide() {
-  const modal = document.querySelector('#lesson-modal .modal');
-  if (!modal) return;
-  let lastScroll = 0;
-  modal.addEventListener('scroll', () => {
-    const nav = $('video-nav-row');
-    if (!nav) return;
-    const cur = modal.scrollTop;
-    // Если проскроллили вниз больше чем на 40px — скрываем навигацию
-    if (cur > lastScroll && cur > 40) {
-      nav.style.opacity    = '0';
-      nav.style.transform  = 'translateY(-8px)';
-      nav.style.pointerEvents = 'none';
-    } else {
-      nav.style.opacity    = '1';
-      nav.style.transform  = 'translateY(0)';
-      nav.style.pointerEvents = '';
-    }
-    lastScroll = cur;
-  }, { passive: true });
 })();
