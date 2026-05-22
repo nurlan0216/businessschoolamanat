@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -153,6 +153,7 @@
               <input type="text" id="inp-iin" placeholder="123456789012" maxlength="12" inputmode="numeric" autocomplete="off" class="field-input">
               <div class="field-border-anim"></div>
             </div>
+            <p id="iin-hint" style="margin-top:6px;font-size:12px;color:var(--text3);padding-left:4px">12-значный номер из удостоверения личности</p>
           </div>
           <div class="field">
             <label class="field-label" id="label-phone">Номер телефона</label>
@@ -343,7 +344,7 @@
   </button>
   <button class="mnav-btn" onclick="mobileNavTo('catalog',this)" id="mnav-cat-btn">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-    <span id="mnav-cat">Каталог</span>
+    <span id="mnav-cat">Материалы</span>
   </button>
   <button class="mnav-btn" onclick="mobileNavTo('help',this)" id="mnav-help-btn">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -365,11 +366,11 @@
       <div class="video-nav-row">
         <button class="nav-pill" id="prev-btn" onclick="prevLesson()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-          <span id="prev-label">Пред.</span>
+          <span id="prev-label">← Предыдущий урок</span>
         </button>
         <span class="video-lesson-title" id="current-lesson-title"></span>
         <button class="nav-pill" id="next-btn" onclick="nextLesson()">
-          <span id="next-label">След.</span>
+          <span id="next-label">Следующий урок →</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
