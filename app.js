@@ -924,25 +924,24 @@ function installYtBlockers(slot) {
   container.appendChild(tr);
   setTimeout(function() { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(function() { tr.remove(); }, 1000); }, 7000);
 
-  // ── Низ (без правого угла): share/часы/YouTube-лого — 70% ширины ──
-  const botH = Math.round(vh * 0.25);
-  const botW = Math.round(vw * 0.70);
+  // ── Низ: вся нижняя панель YouTube (прогресс-бар + share/часы/лого) — 100% ширины × 32% высоты ──
+  const botH = Math.round(vh * 0.32);
   const bot = document.createElement('div');
   bot.className = 'yt-blocker yt-blocker-bot';
   bot.style.cssText = 'position:absolute;bottom:' + oy + 'px;left:' + ox + 'px;' +
-    'width:' + botW + 'px;height:' + botH + 'px;' +
+    'width:' + vw + 'px;height:' + botH + 'px;' +
     'z-index:55;background:transparent;pointer-events:auto;cursor:default';
   container.appendChild(bot);
 
   // ── Правый нижний угол: кнопка fullscreen YouTube — перехватываем → наш fullscreen ──
-  // Зона: 30% × 25% от размера видео
+  // Зона поверх bot: 30% ширины × 32% высоты, z-index выше чтобы клики проходили к нам
   const fsW = Math.round(vw * 0.30);
-  const fsH = botH; // 25% высоты
+  const fsH = botH;
   const fsZone = document.createElement('div');
   fsZone.className = 'yt-blocker yt-blocker-fs';
-  fsZone.style.cssText = 'position:absolute;bottom:' + oy + 'px;left:' + (ox + botW) + 'px;' +
+  fsZone.style.cssText = 'position:absolute;bottom:' + oy + 'px;left:' + (ox + vw - fsW) + 'px;' +
     'width:' + fsW + 'px;height:' + fsH + 'px;' +
-    'z-index:55;background:transparent;pointer-events:auto;cursor:pointer';
+    'z-index:60;background:transparent;pointer-events:auto;cursor:pointer';
   fsZone.addEventListener('click', function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
   fsZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
   container.appendChild(fsZone);
