@@ -978,7 +978,21 @@ body.cursor-active * { cursor: none !important; }
 }
 .video-lesson-title {
   font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text);
+}
+.video-title-below {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 2px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.video-title-below::before {
+  content: '';
+  display: block; flex-shrink: 0;
+  width: 3px; height: 18px;
+  background: var(--gold);
+  border-radius: 3px;
 }
 .nav-pill {
   display: flex; align-items: center; gap: 5px;
@@ -1008,18 +1022,8 @@ body.cursor-active * { cursor: none !important; }
 #tap-center { left: 40%; width: 20%; }
 
 .vid-nav {
-  position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
-  background: rgba(0,0,0,0.55); border: none; border-radius: 10px;
-  color: #fff; cursor: pointer; padding: 10px 14px;
-  transition: all .2s; opacity: 0;
-  backdrop-filter: blur(4px);
+  display: none; /* стрелки убраны — навигация через кнопки сверху */
 }
-.video-container:hover .vid-nav { opacity: 1; }
-.vid-nav:disabled { opacity: 0 !important; pointer-events: none; }
-.vid-nav.left { left: 10px; }
-.vid-nav.right { right: 10px; }
-.vid-nav:hover { background: rgba(245,200,66,0.2); border: 1px solid rgba(245,200,66,0.3); }
-@media (max-width: 640px) { .vid-nav { opacity: .8; } }
 
 /* Completion banner */
 .completion-banner {
