@@ -899,6 +899,90 @@ function closeImageViewer() {
   setTimeout(() => { $('img-viewer-src').src = ''; }, 300);
 }
 
+// ══════════════════════════ YOUTUBE RICH PREVIEW ══════════════════
+// Показывает красивое превью YouTube с названием и логотипом канала.
+// После нажатия Play — запускает чистый iframe без лишних элементов.
+async function showYouTubePreview(slot, ytId, fallbackTitle) {
+  // Сразу показываем превью (thumbnail высокого качества)
+  const thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+
+  // Рисуем скелет превью мгновенно
+  slot.innerHTML = `
+    <div id="yt-preview" style="position:absolute;inset:0;background:#000;display:flex;flex-direction:column;overflow:hidden;border-radius:inherit">
+      <!-- Превью картинка -->
+      <div style="position:relative;flex:1;overflow:hidden;cursor:pointer" id="yt-thumb-area">
+        <img id="yt-thumb-img" src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover;display:block">
+        <!-- Тёмный градиент снизу -->
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05) 40%,rgba(0,0,0,0.75) 100%)"></div>
+        <!-- Кнопка Play по центру -->
+        <div id="yt-play-btn" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+          <div style="width:72px;height:72px;background:rgba(255,0,0,0.92);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 32px rgba(0,0,0,0.6);transition:transform .15s">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="margin-left:4px"><polygon points="5 3 19 12 5 21"/></svg>
+          </div>
+        </div>
+        <!-- Название канала + лого снизу слева -->
+        <div id="yt-channel-bar" style="position:absolute;bottom:10px;left:10px;right:10px;display:flex;align-items:center;gap:9px;opacity:0;transition:opacity .4s">
+          <img id="yt-channel-logo" src="" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.25);flex-shrink:0;display:none">
+          <div style="flex:1;min-width:0">
+            <div id="yt-video-title" style="color:#fff;font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 6px rgba(0,0,0,0.8)">${escHtml(fallbackTitle)}</div>
+            <div id="yt-channel-name" style="color:rgba(255,255,255,0.7);font-size:11px;font-family:'DM Sans',sans-serif;margin-top:1px"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Клик по превью — запуск плеера
+  const thumbArea = document.getElementById('yt-thumb-area');
+  if (thumbArea) {
+    const startPlayer = () => {
+      slot.innerHTML = '';
+      currentYtId = ytId;
+      ytStartTime = Date.now();
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+      slot.appendChild(iframe);
+      showTapZones();
+    };
+    thumbArea.addEventListener('click', startPlayer, { once: true });
+    thumbArea.addEventListener('touchend', function(e) {
+      e.preventDefault(); startPlayer();
+    }, { once: true, passive: false });
+  }
+
+  // Загружаем метаданные канала через noembed (прокси oEmbed, без CORS)
+  try {
+    const oembed = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${ytId}`);
+    if (oembed.ok) {
+      const data = await oembed.json();
+      const bar = document.getElementById('yt-channel-bar');
+      if (!bar) return; // превью уже закрыто
+
+      const titleEl = document.getElementById('yt-video-title');
+      const chanEl  = document.getElementById('yt-channel-name');
+      const logoEl  = document.getElementById('yt-channel-logo');
+
+      if (titleEl && data.title)        titleEl.textContent = data.title;
+      if (chanEl  && data.author_name)  chanEl.textContent  = data.author_name;
+
+      // Логотип канала через unavatar (публичный сервис, без API ключа)
+      if (logoEl && data.author_name) {
+        logoEl.src = `https://unavatar.io/youtube/${encodeURIComponent(data.author_name)}`;
+        logoEl.style.display = 'block';
+        logoEl.onerror = () => { logoEl.style.display = 'none'; };
+      }
+
+      if (bar) bar.style.opacity = '1';
+    }
+  } catch (_) {
+    // Если oEmbed недоступен — показываем хотя бы название урока
+    const bar = document.getElementById('yt-channel-bar');
+    if (bar) bar.style.opacity = '1';
+  }
+}
+
 // ===== UNIVERSAL OVERLAY ДЛЯ ЗАПУСКА ВИДЕО ======
 function showUniversalPlayOverlay(onPlayCallback) {
   const slot = $('video-slot');
@@ -946,41 +1030,8 @@ function playLesson(courseIdx, lessonAbsIdx) {
   if (link) {
     const ytId = extractYouTubeId(link);
     if (ytId) {
-      showUniversalPlayOverlay(() => {
-        slot.innerHTML = '';
-        hideTapZones();
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-        slot.appendChild(iframe);
-
-        // Левый верхний блок — блокирует канал/название, постоянный
-        const topLeft = document.createElement('div');
-        topLeft.style.cssText = 'position:absolute;top:0;left:0;width:70%;height:30%;z-index:5;background:transparent;pointer-events:all';
-        slot.appendChild(topLeft);
-
-        // Правый верхний блок — блокирует звук/CC/настройки, исчезает через 7с
-        const topRight = document.createElement('div');
-        topRight.id = 'yt-top-right';
-        topRight.style.cssText = 'position:absolute;top:0;right:0;width:30%;height:30%;z-index:5;background:transparent;pointer-events:all;transition:opacity 1s ease';
-        slot.appendChild(topRight);
-
-        setTimeout(() => {
-          const tr = document.getElementById('yt-top-right');
-          if (tr) {
-            tr.style.opacity = '0';
-            tr.style.pointerEvents = 'none';
-            setTimeout(() => { if (tr && tr.parentNode) tr.parentNode.removeChild(tr); }, 1000);
-          }
-        }, 7000);
-
-        // Нижний блок — блокирует "Смотреть на YouTube", постоянный
-        const bottomBlock = document.createElement('div');
-        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:20%;z-index:5;background:transparent;pointer-events:all';
-        slot.appendChild(bottomBlock);
-      });
+      // Показываем превью с названием и логотипом канала через YouTube oEmbed
+      showYouTubePreview(slot, ytId, lessonName);
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
       let embedUrl = link;
       const mClip  = link.match(/clip(-?\d+)_(\d+)/);
@@ -1366,25 +1417,76 @@ function removeFullscreenBlockers() {
 })();
 
 function setupTapZones() {
-  const left = $('tap-left'), right = $('tap-right'), center = $('tap-center');
+  const left   = $('tap-left');
+  const right  = $('tap-right');
+  const center = $('tap-center');
   const container = $('video-container');
   if (!left || !right || !center) return;
-  function handle(zone) {
-    if (tapTimer) {
-      clearTimeout(tapTimer); tapTimer = null;
-      if (zone === 'left'  && currentYtId) loadYtIframe(currentYtId, Math.max(0, getElapsedSec() - 10));
-      if (zone === 'right' && currentYtId) loadYtIframe(currentYtId, getElapsedSec() + 10);
+
+  // Сброс старых обработчиков — клонируем элементы
+  const newLeft   = left.cloneNode(true);
+  const newRight  = right.cloneNode(true);
+  const newCenter = center.cloneNode(true);
+  left.parentNode.replaceChild(newLeft, left);
+  right.parentNode.replaceChild(newRight, right);
+  center.parentNode.replaceChild(newCenter, center);
+
+  // touch-action: manipulation — убирает задержку 300ms на мобильных
+  [newLeft, newRight, newCenter].forEach(el => {
+    el.style.touchAction = 'manipulation';
+    el.style.webkitTapHighlightColor = 'transparent';
+    el.style.pointerEvents = '';
+  });
+
+  let tapCount = 0;
+  let tapZone  = null;
+  let tapTimerId = null;
+
+  function handleTap(zone) {
+    if (tapZone && tapZone !== zone) {
+      // Тапнули другую зону — сбрасываем
+      clearTimeout(tapTimerId);
+      tapCount = 0; tapZone = null;
+    }
+    tapCount++;
+    tapZone = zone;
+
+    if (tapCount >= 2) {
+      // Двойной тап — перемотка
+      clearTimeout(tapTimerId);
+      tapCount = 0; tapZone = null;
+      if (!currentYtId) return;
+      if (zone === 'left')  loadYtIframe(currentYtId, Math.max(0, getElapsedSec() - 10));
+      if (zone === 'right') loadYtIframe(currentYtId, getElapsedSec() + 10);
     } else {
-      tapTimer = setTimeout(() => {
-        tapTimer = null;
-        if (container.requestFullscreen) container.requestFullscreen();
-        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-      }, 280);
+      // Одиночный тап — ждём второго, иначе fullscreen
+      tapTimerId = setTimeout(() => {
+        tapCount = 0; tapZone = null;
+        if (zone === 'center') {
+          if (container) {
+            if      (container.requestFullscreen)       container.requestFullscreen();
+            else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+          }
+        }
+      }, 300);
     }
   }
-  left.onclick = () => handle('left');
-  right.onclick = () => handle('right');
-  center.onclick = () => handle('center');
+
+  function addTap(el, zone) {
+    el.addEventListener('touchend', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleTap(zone);
+    }, { passive: false });
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      handleTap(zone);
+    });
+  }
+
+  addTap(newLeft,   'left');
+  addTap(newRight,  'right');
+  addTap(newCenter, 'center');
 }
 function prevLesson() {
   const lessons = getLessons(currentCourseIdx);
