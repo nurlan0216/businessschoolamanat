@@ -61,20 +61,20 @@ const T = {
     steps: ['Подключение к серверу...','Поиск в базе данных...','Проверка ИИН...','Проверка оплаты...','Проверка доступа...','Выдача доступа...'],
     errEmpty: 'Заполните все поля', errIin: 'ИИН должен содержать 12 цифр',
     errPhone: 'Введите корректный номер телефона',
-    errNotFound: '❌ ИИН не найден в базе. Обратитесь к куратору.',
-    errNotPaid: '❌ Оплата не подтверждена. Обратитесь к куратору.',
-    errNoAccess: '❌ Доступ не разрешён. Обратитесь к куратору.',
+    errNotFound: '❌ ИИН не найден в базе. <a href="__TG__" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Написать куратору</a>',
+    errNotPaid: '❌ Оплата не подтверждена. <a href="__TG__" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Написать куратору</a>',
+    errNoAccess: '❌ Доступ не разрешён. <a href="__TG__" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Написать куратору</a>',
     errNetwork: '⚠ Ошибка соединения. Проверьте интернет и попробуйте снова.',
     errSheetUnavailable: '⚠ Сервер данных временно недоступен. Попробуйте позже или обратитесь к куратору.',
     ok: 'Доступ открыт! Добро пожаловать,', hello: 'Привет,',
     savedOk: '✅ Сохранено!', wrongPw: '❌ Неверный пароль',
     go: 'Открыть', lessons: 'уроков', lesson: 'урок', watched: 'просмотрено',
-    prev: 'Пред.', next: 'След.', fileDownload: 'Скачать файл',
+    prev: '← Предыдущий урок', next: 'Следующий урок →', fileDownload: 'Скачать файл',
     noCourses: 'Курсы загружаются... Обновите страницу если долго.',
     progressCourse: 'Прогресс курса', of: 'из', lessonsWatched: 'уроков просмотрено',
     searchLessons: 'Поиск по урокам...', coursesSearch: 'Поиск курсов...',
     noResults: 'Ничего не найдено',
-    mnavCourses: 'Курсы', mnavCat: 'Каталог', mnavHelp: 'Помощь',
+    mnavCourses: 'Курсы', mnavCat: 'Материалы', mnavHelp: 'Помощь',
     completionTitle: 'Курс завершён! 🎉', completionSub: 'Вы просмотрели все уроки. Отличная работа!',
     linkNotSet: 'Ссылка не настроена',
     imgDownload: 'Скачать', imgOpenOrig: 'Открыть оригинал',
@@ -110,12 +110,12 @@ const T = {
     ok: 'Рұқсат берілді! Қош келдіңіз,', hello: 'Сәлем,',
     savedOk: '✅ Сақталды!', wrongPw: '❌ Қате пароль',
     go: 'Ашу', lessons: 'сабақ', lesson: 'сабақ', watched: 'көрілді',
-    prev: 'Алдыңғы', next: 'Келесі', fileDownload: 'Файлды жүктеу',
+    prev: '← Алдыңғы', next: 'Келесі →', fileDownload: 'Файлды жүктеу',
     noCourses: 'Сабақтар жүктелуде... Беттi жаңартыңыз.',
     progressCourse: 'Курс барысы', of: '/', lessonsWatched: 'сабақ көрілді',
     searchLessons: 'Сабақтарды іздеу...', coursesSearch: 'Курстарды іздеу...',
     noResults: 'Ештеңе табылмады',
-    mnavCourses: 'Курстар', mnavCat: 'Каталог', mnavHelp: 'Көмек',
+    mnavCourses: 'Курстар', mnavCat: 'Материалдар', mnavHelp: 'Көмек',
     completionTitle: 'Курс аяқталды! 🎉', completionSub: 'Барлық сабақты көрдіңіз. Керемет жұмыс!',
     linkNotSet: 'Сілтеме орнатылмаған',
     imgDownload: 'Жүктеу', imgOpenOrig: 'Түпнұсқаны ашу',
@@ -542,6 +542,11 @@ function renderCoursesGrid() {
     const delay      = fi * 0.06;
     const prog       = getCourseProgress(idx);
 
+    const isFirst    = fi === 0 && !query;
+    const startBadge = isFirst
+      ? `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(245,200,66,0.4)">Начни здесь 👆</div>`
+      : '';
+
     const iconHtml = course.iconUrl
       ? `<img src="${course.iconUrl}" alt="${name}" onerror="this.style.display='none';this.parentNode.textContent='${initials}'">`
       : initials;
@@ -557,7 +562,8 @@ function renderCoursesGrid() {
         </div>
       </div>` : '';
 
-    return `<div class="platform-card" style="--card-accent:${color};--card-glow:${hexToRgba(color,0.06)};animation-delay:${delay}s" onclick="openLesson(${idx})">
+    return `<div class="platform-card" style="--card-accent:${color};--card-glow:${hexToRgba(color,0.06)};animation-delay:${delay}s;position:relative" onclick="openLesson(${idx})">
+      ${startBadge}
       <div class="pc-body">
         <div class="pc-logo">
           <div class="pc-icon" style="background:linear-gradient(140deg,${color},${darkenHex(color,20)})">${iconHtml}</div>
@@ -1345,7 +1351,8 @@ function finishLogin(btn) {
 }
 function showMsg(type, msg) {
   const el = $(type === 'error' ? 'login-error' : 'login-success');
-  el.textContent = msg; el.style.display = 'block';
+  el.innerHTML = msg.replace(/__TG__/g, tgUrl || '#');
+  el.style.display = 'block';
 }
 function markStep(i) {
   const el = $(`ps${i}`); if (el) el.classList.add('done');
@@ -1553,4 +1560,29 @@ async function tryRestoreSession() {
     $('login-page').style.display   = 'flex';
     $('lessons-page').style.display = 'none';
   }
+})();
+
+// ══════════════════════════ VIDEO NAV AUTO-HIDE ═══════════════════
+// Скрываем кнопки "Предыдущий / Следующий урок" при скролле вниз,
+// показываем снова при скролле вверх — чтобы не перекрывали текст
+(function initVideoNavHide() {
+  const modal = document.querySelector('#lesson-modal .modal');
+  if (!modal) return;
+  let lastScroll = 0;
+  modal.addEventListener('scroll', () => {
+    const nav = $('video-nav-row');
+    if (!nav) return;
+    const cur = modal.scrollTop;
+    // Если проскроллили вниз больше чем на 40px — скрываем навигацию
+    if (cur > lastScroll && cur > 40) {
+      nav.style.opacity    = '0';
+      nav.style.transform  = 'translateY(-8px)';
+      nav.style.pointerEvents = 'none';
+    } else {
+      nav.style.opacity    = '1';
+      nav.style.transform  = 'translateY(0)';
+      nav.style.pointerEvents = '';
+    }
+    lastScroll = cur;
+  }, { passive: true });
 })();
