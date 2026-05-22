@@ -6,7 +6,7 @@
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
-const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbxS5Be4kiO3OD9LDwxfnUz56waz2aQMNfMrj3wmKz0FIFlaNsiJdypy4V2xukhlI07k/exec';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbywfO2d6H0vrXWZUIm3-Ykn5bwIfDC93tPhfNY-eoF4MfQY0Yu4CJiewTQrsVp_vgQk/exec';
 const ADMIN_PASSWORD   = 'N20020216$$';
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
@@ -457,6 +457,44 @@ const isWatched   = (ci, li) => !!watchedLessons[getWatchKey(ci, li)];
 function markWatched(ci, li) {
   watchedLessons[getWatchKey(ci, li)] = true;
   localStorage.setItem('watched_lessons', JSON.stringify(watchedLessons));
+  saveProgressToSheet(ci, li);
+}
+
+// ──── Сохранение прогресса в Google-таблицу ────
+function saveProgressToSheet(ci, li) {
+  try {
+    const iin = sessionStorage.getItem('bs_iin');
+    if (!iin || !LOG_SCRIPT_URL) return;
+    const course = courses[ci];
+    const courseName = course ? (course.nameRU || course.nameKZ || ('Курс ' + ci)) : ('Курс ' + ci);
+    fetch(LOG_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        _type: 'progress',
+        iin, name: currentUser || '—',
+        courseIdx: ci, lessonIdx: li,
+        courseName,
+        watchedJson: JSON.stringify(watchedLessons)
+      })
+    });
+  } catch(e) { console.warn('progress save fail', e); }
+}
+
+// ──── Восстановление прогресса из таблицы (при входе) ────
+async function loadProgressFromSheet(iin) {
+  if (!iin || !LOG_SCRIPT_URL) return;
+  try {
+    const url = LOG_SCRIPT_URL + '?action=getProgress&iin=' + encodeURIComponent(iin);
+    const r = await fetch(url);
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j && j.ok && j.watchedJson) {
+      const remote = JSON.parse(j.watchedJson);
+      watchedLessons = Object.assign({}, watchedLessons, remote);
+      localStorage.setItem('watched_lessons', JSON.stringify(watchedLessons));
+    }
+  } catch(e) { console.warn('progress load fail', e); }
 }
 function getLessons(idx) {
   const c = courses[idx];
@@ -635,11 +673,13 @@ function updateModalProgress(idx) {
 }
 
 // ══════════════════════════════ LESSON LIST ═══════════════════════
+let _suggestStartLessonIdx = -1;
 function renderLessonList(idx) {
   const lessons  = getLessons(idx);
   const color    = courses[idx]?.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
   const query    = lessonSearchQuery.toLowerCase().trim();
   let videoSeq   = 0, hasResults = false;
+  _suggestStartLessonIdx = -1;
 
   const html = lessons.map((lesson, i) => {
     if (lesson.type === 'empty') return '';
@@ -690,15 +730,25 @@ function renderLessonList(idx) {
     const lessonName = lesson.name || (lang === 'kz' ? `Сабақ ${vIdx + 1}` : `Урок ${vIdx + 1}`);
     const hasLink    = lesson.url && lesson.url.length > 4;
     const watched    = isWatched(idx, i);
+    const isCurrent  = (idx === currentCourseIdx && i === currentLessonIndex && $('video-section') && $('video-section').style.display !== 'none');
 
     if (query && !lessonName.toLowerCase().includes(query)) return '';
     hasResults = true;
 
-    return `<li class="clickable${watched ? ' watched' : ''}" onclick="playLesson(${idx},${i})">
+    // "Начни здесь" = первый невидимый видео-урок (если ничего ещё не смотрелось текущим)
+    if (!isCurrent && !watched && _suggestStartLessonIdx === -1) _suggestStartLessonIdx = i;
+    const isStartHere = (!isCurrent && !watched && i === _suggestStartLessonIdx);
+
+    const cursorTag = isCurrent
+      ? `<span class="cursor-tag here" style="background:${color};color:#fff">▶ ${lang==='kz'?'СІЗ ОСЫНДА':'ВЫ ТУТ'}</span>`
+      : (isStartHere ? `<span class="cursor-tag start" style="background:${hexToRgba(color,0.18)};color:${color};border:1px dashed ${color}">🎯 ${lang==='kz'?'ОСЫДАН БАСТА':'НАЧНИ ЗДЕСЬ'}</span>` : '');
+
+    return `<li class="clickable${watched ? ' watched' : ''}${isCurrent?' is-current-lesson':''}" onclick="playLesson(${idx},${i})">
       <span class="lnum" style="${watched
         ? 'border-color:var(--green);color:var(--green);background:rgba(34,196,138,0.1)'
         : `border-color:${color};color:${color}`}">${watched ? '✓' : vIdx + 1}</span>
       <span class="l-title">${escHtml(lessonName)}</span>
+      ${cursorTag}
       ${watched
         ? `<span class="l-check">✓</span>`
         : (hasLink
@@ -756,6 +806,87 @@ function showUniversalPlayOverlay(onPlayCallback) {
   btn.addEventListener('click', function () { onPlayCallback(); });
   btn.addEventListener('touchend', function (e) { e.preventDefault(); onPlayCallback(); });
 }
+// ========= УНИВЕРСАЛЬНЫЕ БЛОКИРАТОРЫ ЗОН YOUTUBE =========
+function installYtBlockers(slot) {
+  // Левый верх — название видео + канал
+  const tl = document.createElement('div');
+  tl.className = 'yt-blocker yt-blocker-tl';
+  tl.style.cssText = 'position:absolute;top:0;left:0;width:72%;height:22%;z-index:50;background:transparent;pointer-events:auto';
+  slot.appendChild(tl);
+
+  // Правый верх — кнопки звук/CC/настройки (на 7с, чтобы юзер всё-таки мог запустить)
+  const tr = document.createElement('div');
+  tr.className = 'yt-blocker yt-blocker-tr';
+  tr.style.cssText = 'position:absolute;top:0;right:0;width:28%;height:22%;z-index:50;background:transparent;pointer-events:auto;transition:opacity 1s ease';
+  slot.appendChild(tr);
+  setTimeout(() => { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(()=>tr.remove(), 1000); }, 7000);
+
+  // Низ — share/часы/YouTube-лого/recommendations
+  const bot = document.createElement('div');
+  bot.className = 'yt-blocker yt-blocker-bot';
+  bot.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:18%;z-index:50;background:transparent;pointer-events:auto';
+  slot.appendChild(bot);
+}
+
+// ========= YOUTUBE END-OF-VIDEO DETECTION =========
+function attachYtEndListener(iframe) {
+  // Включаем listening
+  const send = (func, args=[]) => {
+    try { iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch(_) {}
+  };
+  const listen = () => {
+    try { iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: iframe.id, channel: 'widget' }), '*'); } catch(_) {}
+  };
+  iframe.addEventListener('load', () => { setTimeout(listen, 400); setTimeout(listen, 1500); });
+  if (window._ytEndHandler) window.removeEventListener('message', window._ytEndHandler);
+  window._ytEndHandler = (e) => {
+    if (!e.data || typeof e.data !== 'string') return;
+    try {
+      const d = JSON.parse(e.data);
+      // info.playerState === 0 => ENDED
+      const st = d && d.info && (d.info.playerState !== undefined ? d.info.playerState : d.info);
+      if (d.event === 'onStateChange' && d.info === 0) showNextSuggestion();
+      if (d.event === 'infoDelivery' && d.info && d.info.playerState === 0) showNextSuggestion();
+    } catch(_) {}
+  };
+  window.addEventListener('message', window._ytEndHandler);
+}
+
+// ========= ПРЕДЛОЖЕНИЕ "СЛЕДУЮЩИЙ УРОК" =========
+function showNextSuggestion() {
+  if (currentCourseIdx === null) return;
+  const lessons = getLessons(currentCourseIdx);
+  const nextIdx = findAdjacentVideo(lessons, currentLessonIndex, +1);
+  const slot = $('video-slot');
+  if (!slot || document.getElementById('next-suggest-overlay')) return;
+  if (nextIdx === -1) {
+    // Курс завершён
+    const ov = document.createElement('div');
+    ov.id = 'next-suggest-overlay';
+    ov.style.cssText = 'position:absolute;inset:0;z-index:80;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;text-align:center;padding:24px;font-family:sans-serif';
+    ov.innerHTML = `<div style="font-size:48px">🎉</div>
+      <div style="font-size:20px;font-weight:800">${lang==='kz'?'Курс аяқталды!':'Курс завершён!'}</div>
+      <button style="margin-top:8px;background:var(--gold);border:none;border-radius:12px;padding:12px 22px;font-weight:800;cursor:pointer" onclick="document.getElementById('next-suggest-overlay').remove()">${lang==='kz'?'Жабу':'Закрыть'}</button>`;
+    slot.appendChild(ov);
+    return;
+  }
+  const nextLesson = lessons[nextIdx];
+  const nextName = nextLesson.name || (lang==='kz'?`Сабақ`:`Урок`);
+  const ov = document.createElement('div');
+  ov.id = 'next-suggest-overlay';
+  ov.style.cssText = 'position:absolute;inset:0;z-index:80;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;text-align:center;padding:24px;font-family:sans-serif;backdrop-filter:blur(4px)';
+  ov.innerHTML = `
+    <div style="font-size:13px;letter-spacing:2px;opacity:0.7;text-transform:uppercase">${lang==='kz'?'Келесі сабақ':'Следующий урок'}</div>
+    <div style="font-size:22px;font-weight:800;max-width:560px">${escHtml(nextName)}</div>
+    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center">
+      <button id="next-suggest-go" style="background:var(--gold);border:none;border-radius:12px;padding:13px 24px;font-weight:800;font-size:14px;cursor:pointer;display:flex;gap:8px;align-items:center">▶ ${lang==='kz'?'Бастау':'Смотреть'}</button>
+      <button id="next-suggest-close" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:12px;padding:13px 22px;font-weight:600;font-size:14px;cursor:pointer">${lang==='kz'?'Жабу':'Закрыть'}</button>
+    </div>`;
+  slot.appendChild(ov);
+  document.getElementById('next-suggest-go').onclick = () => { ov.remove(); playLesson(currentCourseIdx, nextIdx); };
+  document.getElementById('next-suggest-close').onclick = () => ov.remove();
+}
+
 // ========= ВСТАВЬТЕ ЭТУ playLesson =========
 function playLesson(courseIdx, lessonAbsIdx) {
   const lessons = getLessons(courseIdx);
@@ -777,8 +908,9 @@ function playLesson(courseIdx, lessonAbsIdx) {
   const nextIdx = findAdjacentVideo(lessons, lessonAbsIdx, +1);
   $('prev-btn').disabled = prevIdx === -1;
   $('next-btn').disabled = nextIdx === -1;
-  const vp = $('vid-prev-btn'); if (vp) vp.disabled = prevIdx === -1;
-  const vn = $('vid-next-btn'); if (vn) vn.disabled = nextIdx === -1;
+  // Скрываем стрелки поверх видео — оставляем только внешние «Пред./След.»
+  const vp = $('vid-prev-btn'); if (vp) { vp.style.display = 'none'; }
+  const vn = $('vid-next-btn'); if (vn) { vn.style.display = 'none'; }
 
   const slot = $('video-slot');
   slot.innerHTML = '';
@@ -792,36 +924,17 @@ function playLesson(courseIdx, lessonAbsIdx) {
         slot.innerHTML = '';
         hideTapZones();
         const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+        iframe.id = 'yt-player-iframe';
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
         iframe.setAttribute('allowfullscreen', '');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
 
-        // Левый верхний блок — блокирует канал/название, постоянный
-        const topLeft = document.createElement('div');
-        topLeft.style.cssText = 'position:absolute;top:0;left:0;width:70%;height:30%;z-index:5;background:transparent;pointer-events:all';
-        slot.appendChild(topLeft);
-
-        // Правый верхний блок — блокирует звук/CC/настройки, исчезает через 7с
-        const topRight = document.createElement('div');
-        topRight.id = 'yt-top-right';
-        topRight.style.cssText = 'position:absolute;top:0;right:0;width:30%;height:30%;z-index:5;background:transparent;pointer-events:all;transition:opacity 1s ease';
-        slot.appendChild(topRight);
-
-        setTimeout(() => {
-          const tr = document.getElementById('yt-top-right');
-          if (tr) {
-            tr.style.opacity = '0';
-            tr.style.pointerEvents = 'none';
-            setTimeout(() => { if (tr && tr.parentNode) tr.parentNode.removeChild(tr); }, 1000);
-          }
-        }, 7000);
-
-        // Нижний блок — блокирует "Смотреть на YouTube", постоянный
-        const bottomBlock = document.createElement('div');
-        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:20%;z-index:5;background:transparent;pointer-events:all';
-        slot.appendChild(bottomBlock);
+        // Универсальные оверлеи — авто-блокировка зон YouTube (название/канал, share/часы, лого YouTube)
+        installYtBlockers(slot);
+        // Авто-детект окончания видео через postMessage YouTube IFrame API
+        attachYtEndListener(iframe);
       });
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
       let embedUrl = link;
@@ -1333,6 +1446,7 @@ async function doLogin() {
 
   $('login-success').textContent   = t('ok') + ' ' + currentUser + '!';
   $('login-success').style.display = 'block';
+  await loadProgressFromSheet(iin);
   await loadSheet2();
   await sleep(700);
   showLessons();
@@ -1539,6 +1653,7 @@ async function tryRestoreSession() {
   if (!savedUser || !savedIin) return false;
   
   currentUser = savedUser;
+  await loadProgressFromSheet(savedIin);
   await loadSheet2();
   showLessons();
   return true;
