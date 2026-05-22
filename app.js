@@ -934,17 +934,36 @@ async function showYouTubePreview(slot, ytId, fallbackTitle) {
   // Клик по превью — запуск плеера
   const thumbArea = document.getElementById('yt-thumb-area');
   if (thumbArea) {
+    let playerStarted = false;
     const startPlayer = () => {
+      if (playerStarted) return;
+      playerStarted = true;
+
       slot.innerHTML = '';
       currentYtId = ytId;
       ytStartTime = Date.now();
+
+      // Сначала скрываем тап-зоны — чтобы не мешали первому нажатию на iframe
+      hideTapZones();
+
       const iframe = document.createElement('iframe');
       iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
       iframe.setAttribute('allowfullscreen', '');
       iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
       slot.appendChild(iframe);
-      showTapZones();
+
+      // Блокируем только кнопку "Смотреть на YouTube" внизу — тонкая полоска
+      const bottomBlock = document.createElement('div');
+      bottomBlock.id = 'yt-bottom-block';
+      bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:38px;z-index:5;background:transparent;pointer-events:all;touch-action:none';
+      bottomBlock.addEventListener('touchstart',  e => e.preventDefault(), { passive: false });
+      bottomBlock.addEventListener('touchend',    e => e.preventDefault(), { passive: false });
+      bottomBlock.addEventListener('click',       e => e.stopPropagation());
+      slot.appendChild(bottomBlock);
+
+      // Включаем тап-зоны через 1.5с — когда видео уже запущено
+      setTimeout(() => showTapZones(), 1500);
     };
     thumbArea.addEventListener('click', startPlayer, { once: true });
     thumbArea.addEventListener('touchend', function(e) {
@@ -1258,12 +1277,14 @@ function loadVimeoIframe(link) {
 
 function hideTapZones() {
   ['tap-left','tap-right','tap-center'].forEach(id => {
-    const el = $(id); if (el) el.style.pointerEvents = 'none';
+    const el = document.getElementById(id);
+    if (el) el.style.pointerEvents = 'none';
   });
 }
 function showTapZones() {
   ['tap-left','tap-right','tap-center'].forEach(id => {
-    const el = $(id); if (el) el.style.pointerEvents = '';
+    const el = document.getElementById(id);
+    if (el) el.style.pointerEvents = '';
   });
 }
 
