@@ -6,7 +6,7 @@
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
-const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbywfO2d6H0vrXWZUIm3-Ykn5bwIfDC93tPhfNY-eoF4MfQY0Yu4CJiewTQrsVp_vgQk/exec';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbxS5Be4kiO3OD9LDwxfnUz56waz2aQMNfMrj3wmKz0FIFlaNsiJdypy4V2xukhlI07k/exec';
 const ADMIN_PASSWORD_HASH = '7404297e91a4ab5b540fceefb2c0030cc24965b1ac4591c774435421b5d8b9ad'; // SHA-256, пароль не хранится в открытом виде
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
@@ -1290,6 +1290,80 @@ function loadDirectVideo(link) {
   slot.appendChild(video);
 }
 const getElapsedSec = () => Math.round((Date.now() - ytStartTime) / 1000);
+
+// ══════════════════════════════ FULLSCREEN BLOCKER ZONES ════════════
+function createFullscreenBlockers() {
+  // Удаляем старые, если есть
+  ['fs-blocker-top','fs-blocker-bottom'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.parentNode.removeChild(el);
+  });
+
+  const top = document.createElement('div');
+  top.id = 'fs-blocker-top';
+  top.style.cssText = [
+    'position:fixed',
+    'top:0','left:0','width:100%',
+    'height:15%',          // высота верхней зоны — подберите под вашу шапку YouTube
+    'z-index:2147483647',  // максимальный z-index
+    'background:transparent',
+    'pointer-events:all',
+    '-webkit-tap-highlight-color:transparent',
+    'touch-action:none',
+  ].join(';');
+
+  const bottom = document.createElement('div');
+  bottom.id = 'fs-blocker-bottom';
+  bottom.style.cssText = [
+    'position:fixed',
+    'bottom:0','left:0','width:100%',
+    'height:12%',          // высота нижней зоны — подберите под панель управления YouTube
+    'z-index:2147483647',
+    'background:transparent',
+    'pointer-events:all',
+    '-webkit-tap-highlight-color:transparent',
+    'touch-action:none',
+  ].join(';');
+
+  // Блокируем все касания — не пускаем в iframe
+  [top, bottom].forEach(el => {
+    el.addEventListener('touchstart',  e => e.preventDefault(), { passive: false });
+    el.addEventListener('touchend',    e => e.preventDefault(), { passive: false });
+    el.addEventListener('touchmove',   e => e.preventDefault(), { passive: false });
+    el.addEventListener('click',       e => e.stopPropagation());
+    el.addEventListener('pointerdown', e => e.preventDefault());
+  });
+
+  document.body.appendChild(top);
+  document.body.appendChild(bottom);
+}
+
+function removeFullscreenBlockers() {
+  ['fs-blocker-top','fs-blocker-bottom'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.parentNode.removeChild(el);
+  });
+}
+
+// Слушаем события fullscreen — показываем/скрываем блокираторы
+;(function initFullscreenBlockerListener() {
+  const fsEvents = ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'];
+  fsEvents.forEach(evt => {
+    document.addEventListener(evt, () => {
+      const isFs = !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+      if (isFs) {
+        createFullscreenBlockers();
+      } else {
+        removeFullscreenBlockers();
+      }
+    });
+  });
+})();
 
 function setupTapZones() {
   const left = $('tap-left'), right = $('tap-right'), center = $('tap-center');
