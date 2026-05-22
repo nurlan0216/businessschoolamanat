@@ -196,6 +196,17 @@
       </p>
     </div>
   </div>
+
+  <!-- Демо-превью курсов (показывается до авторизации) -->
+  <div id="demo-section" style="display:none; width:100%; max-width:960px; margin:0 auto; padding:0 20px 48px;">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);border-radius:12px;padding:8px 18px;font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px">
+        🔒 <span id="demo-label-title">Доступные курсы</span>
+      </div>
+      <p style="font-size:13px;color:var(--text2)" id="demo-label-sub">Войдите чтобы получить доступ к урокам</p>
+    </div>
+    <div id="demo-grid" class="platforms-grid"></div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════ LESSONS PAGE ═══════ -->
@@ -371,6 +382,12 @@
         <button class="nav-pill" id="next-btn" onclick="nextLesson()">
           <span id="next-label">След.</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="nav-pill fs-btn" id="fs-btn" onclick="toggleCustomFullscreen()" title="Полный экран">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
         </button>
       </div>
 
