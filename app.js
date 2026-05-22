@@ -542,10 +542,26 @@ function renderCoursesGrid() {
     const delay      = fi * 0.06;
     const prog       = getCourseProgress(idx);
 
-    const isFirst    = fi === 0 && !query;
-    const startBadge = isFirst
-      ? `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(245,200,66,0.4)">Начни здесь 👆</div>`
-      : '';
+    // ── Умный бейджик: меняется в зависимости от прогресса студента ──
+    let startBadge = '';
+    if (!query) {
+      if (prog.pct === 100) {
+        // Курс завершён — показываем галочку
+        startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,#22c48a,#1aab7a);color:#fff;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(34,196,138,0.4)">Завершён ✅</div>`;
+      } else if (prog.watched > 0 && prog.pct < 100) {
+        // Студент начал, но не завершил — "Продолжай"
+        startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,${color},${lightenHex(color,20)});color:#fff;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px ${hexToRgba(color,0.4)}">Продолжай 📍</div>`;
+      } else if (fi === 0) {
+        // Первый курс, ещё не начат
+        startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(245,200,66,0.4)">Начни здесь 👆</div>`;
+      } else {
+        // Предыдущий курс завершён — этот следующий шаг
+        const prevProg = fi > 0 ? getCourseProgress(courses.indexOf(filtered[fi - 1])) : null;
+        if (prevProg && prevProg.pct === 100) {
+          startBadge = `<div style="position:absolute;top:12px;right:12px;background:linear-gradient(135deg,#9d4ed0,#7b2dbf);color:#fff;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:0.4px;z-index:2;box-shadow:0 2px 8px rgba(157,78,208,0.4)">Следующий →</div>`;
+        }
+      }
+    }
 
     const iconHtml = course.iconUrl
       ? `<img src="${course.iconUrl}" alt="${name}" onerror="this.style.display='none';this.parentNode.textContent='${initials}'">`
@@ -636,8 +652,51 @@ function updateModalProgress(idx) {
   if (sub)  sub.textContent  = `${prog.watched} ${t('of')} ${prog.total} ${t('lessonsWatched')}`;
   const sec = $('modal-progress-section');
   if (sec) sec.style.display = prog.total > 0 ? 'block' : 'none';
+
   const banner = $('completion-banner');
-  if (banner) banner.classList.toggle('show', prog.total > 0 && prog.watched === prog.total);
+  if (!banner) return;
+
+  const isCompleted = prog.total > 0 && prog.watched === prog.total;
+  banner.classList.toggle('show', isCompleted);
+
+  // Показываем следующий курс если курс завершён
+  const nextIdx = idx + 1;
+  let nextCourseHtml = '';
+  if (isCompleted && courses[nextIdx]) {
+    const nc      = courses[nextIdx];
+    const ncName  = lang === 'kz' ? (nc.nameKZ || nc.nameRU) : (nc.nameRU || nc.nameKZ);
+    const ncColor = nc.hexColor || DEFAULT_COLORS[nextIdx % DEFAULT_COLORS.length];
+    const ncLessons = (lang === 'kz' ? nc.lessonsKZ : nc.lessonsRU).filter(l => l.type === 'video').length;
+    const ncIcon  = nc.iconUrl
+      ? `<img src="${nc.iconUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.style.display='none'">`
+      : ncName.substring(0, 2).toUpperCase();
+    nextCourseHtml = `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.07)">
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.5px;text-transform:uppercase;font-weight:700">
+          ${lang === 'kz' ? 'Келесі курс 👇' : 'Следующий курс 👇'}
+        </p>
+        <div onclick="closeLesson();setTimeout(()=>openLesson(${nextIdx}),220)"
+          style="display:flex;align-items:center;gap:12px;background:${hexToRgba(ncColor,0.1)};border:1px solid ${hexToRgba(ncColor,0.25)};border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .2s"
+          onmouseover="this.style.background='${hexToRgba(ncColor,0.18)}'"
+          onmouseout="this.style.background='${hexToRgba(ncColor,0.1)}'">
+          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(140deg,${ncColor},${darkenHex(ncColor,20)});display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;flex-shrink:0;overflow:hidden">${ncIcon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(ncName)}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${ncLessons} ${t('lessons')}</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${ncColor}" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </div>`;
+  }
+
+  // Вставляем карточку следующего курса в баннер
+  let nextSlot = $('completion-next-course');
+  if (!nextSlot && banner) {
+    nextSlot = document.createElement('div');
+    nextSlot.id = 'completion-next-course';
+    banner.appendChild(nextSlot);
+  }
+  if (nextSlot) nextSlot.innerHTML = nextCourseHtml;
 }
 
 // ══════════════════════════════ LESSON LIST ═══════════════════════
