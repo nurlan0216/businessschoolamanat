@@ -29,6 +29,7 @@ let logoClickTimer     = null;
 
 let filterCoursesTimer = null;
 let filterLessonsTimer = null;
+let isCustomFullscreen = false;
 
 let catalogFulfillmentUrl = '';
 let catalogGoldUrl        = '';
@@ -132,29 +133,8 @@ const setHref = (id, url) => { const e=$(id); if(e && url) e.href = url; };
 const sleep   = ms => new Promise(r => setTimeout(r, ms));
 
 // ══════════════════════════════ CURSOR ════════════════════════════
-(function initCursor() {
-  if (window.matchMedia('(hover: none)').matches) return;
-  const cur = $('cursor'), fol = $('cursor-follower');
-  if (!cur || !fol) return;
-  document.body.classList.add('cursor-active');
-  let mx = 0, my = 0, fx = 0, fy = 0;
-  document.addEventListener('mousemove', e => {
-    mx = e.clientX; my = e.clientY;
-    cur.style.transform = `translate(${mx - 4}px, ${my - 4}px)`;
-  });
-  (function animFol() {
-    fx += (mx - fx - 18) * 0.14;
-    fy += (my - fy - 18) * 0.14;
-    fol.style.transform = `translate(${fx}px, ${fy}px)`;
-    requestAnimationFrame(animFol);
-  })();
-  document.addEventListener('mouseover', e => {
-    const el = e.target;
-    const hoverable = el.closest('a, button, [role="button"], .clickable, .platform-card, .action-card');
-    cur.classList.toggle('hovering', !!hoverable);
-    fol.classList.toggle('hovering', !!hoverable);
-  });
-})();
+// Кастомный курсор убран — используется стандартный курсор браузера
+// с CSS-подсветкой на интерактивных элементах (см. style.css)
 
 // ══════════════════════════════ THEME ════════════════════════════
 function initTheme() {
@@ -375,6 +355,7 @@ async function loadSheet2() {
     applyTexts();
     renderCoursesGrid();
     updateHeroStats();
+    renderDemoGrid(); // показать превью курсов на странице логина
   } catch (e) {
     console.error('Sheet2 load error', e);
     showSheetError();
@@ -632,6 +613,97 @@ function filterLessons(q) {
   }, 220);
 }
 
+// ══════════════════════════════ DEMO GRID (превью без авторизации) ══
+function renderDemoGrid() {
+  const section = $('demo-section');
+  const grid    = $('demo-grid');
+  if (!section || !grid) return;
+  if (currentUser) { section.style.display = 'none'; return; } // скрыть после входа
+  if (courses.length === 0) { section.style.display = 'none'; return; }
+
+  const msg = lang === 'kz'
+    ? 'Сабақтарға қол жеткізу үшін кіріңіз'
+    : 'Войдите чтобы получить доступ к урокам';
+
+  grid.innerHTML = courses.map((course, idx) => {
+    const name       = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+    const lessons    = lang === 'kz' ? course.lessonsKZ : course.lessonsRU;
+    const videoCount = lessons.filter(l => l.type === 'video').length;
+    const color      = course.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+    const initials   = name.substring(0, 2).toUpperCase();
+    const iconHtml   = course.iconUrl
+      ? `<img src="${course.iconUrl}" alt="${name}" onerror="this.style.display='none';this.parentNode.textContent='${initials}'">`
+      : initials;
+
+    return `<div class="platform-card demo-locked-card" style="--card-accent:${color};--card-glow:${hexToRgba(color,0.06)}"
+        onclick="showToast('${msg}','error')">
+      <div class="demo-lock-badge">🔒</div>
+      <div class="pc-body">
+        <div class="pc-logo">
+          <div class="pc-icon" style="background:linear-gradient(140deg,${color},${darkenHex(color,20)})">${iconHtml}</div>
+          <span class="pc-name">${escHtml(name)}</span>
+        </div>
+        <p class="pc-desc">${videoCount} ${t('lessons')}</p>
+      </div>
+      <div class="pc-footer">
+        <span class="pc-count">
+          <span class="dot" style="background:${color}"></span>
+          ${videoCount} ${t('lessons')}
+        </span>
+        <span style="font-size:13px;font-weight:700;color:${color};opacity:.5">🔒</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  section.style.display = 'block';
+}
+
+// ══════════════════════════════ КАСТОМНЫЙ FULLSCREEN ════════════
+function toggleCustomFullscreen() {
+  const container = $('video-container');
+  const btn       = $('fs-btn');
+  if (!container) return;
+  isCustomFullscreen = !isCustomFullscreen;
+  if (isCustomFullscreen) {
+    container.classList.add('custom-fullscreen');
+    if (btn) btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+        <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
+      </svg>`;
+    document.body.style.overflow = 'hidden';
+  } else {
+    container.classList.remove('custom-fullscreen');
+    if (btn) btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+        <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+      </svg>`;
+    document.body.style.overflow = '';
+  }
+}
+
+// ══════════════════════════════ СКРОЛЛ К "НАЧНИ ЗДЕСЬ" ═══════════
+function scrollToStartLesson() {
+  setTimeout(() => {
+    const ul = $('lp-list');
+    if (!ul) return;
+    let target = ul.querySelector('.is-current-lesson');
+    if (!target) {
+      const items = ul.querySelectorAll('li');
+      for (const li of items) {
+        if (li.querySelector && li.querySelector('.cursor-tag.start')) { target = li; break; }
+      }
+    }
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.style.transition = 'background .4s';
+      target.style.background = 'rgba(245,200,66,0.1)';
+      setTimeout(() => { target.style.background = ''; }, 1600);
+    }
+  }, 250);
+}
+
 // ══════════════════════════════ OPEN LESSON MODAL ════════════════
 function openLesson(idx) {
   currentCourseIdx = idx;
@@ -658,6 +730,7 @@ function openLesson(idx) {
   renderLessonList(idx);
   updateModalProgress(idx);
   $('lesson-modal').classList.add('show');
+  scrollToStartLesson();
 }
 
 function updateModalProgress(idx) {
@@ -1524,6 +1597,7 @@ function logout() {
   const btn = $('login-btn');
   btn.disabled = false;
   btn.classList.remove('loading');
+  renderDemoGrid(); // снова показать превью курсов
 }
 
 // ══════════════════════════════ ADMIN ════════════════════════════
@@ -1621,6 +1695,7 @@ function safeAttr(s) {
 // ══════════════════════════════ KEYBOARD NAV ══════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (isCustomFullscreen) { toggleCustomFullscreen(); return; }
     if ($('lesson-modal').classList.contains('show'))          closeLesson();
     else if ($('img-viewer-modal').classList.contains('show')) closeImageViewer();
     else document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
@@ -1673,147 +1748,7 @@ async function tryRestoreSession() {
     $('lessons-page').style.display = 'none';
   }
 
-  // === УМНЫЙ КУРСОР-КУРАТОР и FULLSCREEN OVERLAY ===
-
-  // Стили
-  (function injectSmartCursorStyle() {
-    if (!document.getElementById('smart-cursor-style')) {
-      const style = document.createElement('style');
-      style.id = 'smart-cursor-style';
-      style.textContent = `
-.smart-cursor-coach {
-  position:fixed;z-index:99999;pointer-events:none;user-select:none;
-  transition:transform .17s cubic-bezier(.22,1,.36,1),opacity .19s;
-}
-.smart-cursor-coach .coach-circle {
-  width:48px;height:48px;background:rgba(34,196,138,0.13);
-  border:3px solid #22c48a;border-radius:50%;
-  box-shadow:0 1px 12px 0 rgba(0,0,0,0.14),0 0 0 10px rgba(245,200,66,0.17);
-  display:flex;align-items:center;justify-content:center;
-  animation:pulse-coach 1.3s infinite alternate;
-}
-@keyframes pulse-coach {
-  0% { box-shadow:0 1px 12px 0 rgba(0,0,0,0.12),0 0 0 10px rgba(34,196,138,0.09);}
-  100% { box-shadow:0 4px 32px 0 rgba(0,0,0,0.18),0 0 0 16px rgba(245,200,66,0.29);}
-}
-.smart-cursor-coach .coach-hand {
-  font-size:24px;margin-left:8px;margin-right:-7px;margin-top:6px;
-  filter:drop-shadow(0 1px 3px rgba(60,60,60,0.10));
-  animation:hand-wiggle 1.3s infinite alternate;
-}
-@keyframes hand-wiggle {
-  0% { transform:rotate(-12deg) scale(1.05);}
-  100% { transform:rotate(3deg) scale(1.17);}
-}
-.smart-cursor-coach .coach-msg {
-  margin-top:2px;background:linear-gradient(90deg,#fffce0,#f5c842 78%);
-  border-radius:8px;padding:4px 13px 4px 9px;font-size:13px;
-  font-weight:800;box-shadow:0 2px 8px 0 rgba(0,0,0,0.02);
-  color:#045c08;text-shadow:0 1px 0 #fff;opacity:.97;pointer-events:none;letter-spacing:.2px;
-}
-      `;
-      document.head.appendChild(style);
-    }
-  })();
-
-  window.showSmartCursorAt = function (x, y, msg) {
-    window.hideSmartCursor();
-    const cursor = document.createElement('div');
-    cursor.className = "smart-cursor-coach";
-    cursor.id = "smart-cursor-coach";
-    cursor.style.left = (x-24) + "px";
-    cursor.style.top = (y-25) + "px";
-    cursor.innerHTML = `
-      <div class="coach-circle">
-        <div class="coach-hand">👉</div>
-      </div>
-      <div class="coach-msg">${msg || "Начни здесь"}</div>
-    `;
-    document.body.appendChild(cursor);
-  };
-  window.hideSmartCursor = function () {
-    const old = document.getElementById('smart-cursor-coach');
-    if (old) old.remove();
-  };
-  
-  // Подсветить "Начни здесь"/"Вы тут"
-  document.addEventListener('DOMContentLoaded', () => {
-    const observer = new MutationObserver(() => {
-      hideSmartCursor();
-      if (document.querySelector('.is-current-lesson') && $('lesson-modal').classList.contains('show')) {
-        const li = document.querySelector('.is-current-lesson');
-        const rect = li.getBoundingClientRect();
-        showSmartCursorAt(rect.left + rect.width/2, rect.top, lang==='kz' ? 'Сіз қазір осында' : 'Вы тут');
-      } else if (document.querySelector('.cursor-tag.start') && $('lesson-modal').classList.contains('show')) {
-        const el = document.querySelector('.cursor-tag.start');
-        const rect = el.getBoundingClientRect();
-        showSmartCursorAt(rect.left + rect.width/2, rect.top, lang==='kz' ? 'Осыдан баста' : 'Начни здесь');
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('scroll', hideSmartCursor, true);
-  });
-
-  // === Fullscreen overlays & YouTube blocker ===
-
-  // Utility to detect fullscreen state
-  function isFullScreen() {
-    return (
-      document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.mozFullScreenElement ||
-      document.msFullscreenElement);
-  }
-  // Overlay for fullscreen
-  function setFullscreenOverlay(active) {
-    let overlay = document.getElementById('fs-block-overlay');
-    if (active) {
-      if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'fs-block-overlay';
-        overlay.style.cssText = `
-          position:fixed;left:0;right:0;top:0;bottom:0;pointer-events:none;z-index:99995;
-        `;
-        const top = document.createElement('div');
-        top.style.cssText = "position:absolute;left:0;top:0;width:100vw;height:20vh;background:rgba(0,0,0,0.17);";
-        const bottom = document.createElement('div');
-        bottom.style.cssText = "position:absolute;left:0;bottom:0;width:100vw;height:10vh;background:rgba(0,0,0,0.62);";
-        overlay.appendChild(top);
-        overlay.appendChild(bottom);
-        document.body.appendChild(overlay);
-      }
-    } else if (overlay) {
-      overlay.remove();
-    }
-  }
-  document.addEventListener('fullscreenchange', () => setFullscreenOverlay(isFullScreen()));
-  document.addEventListener('webkitfullscreenchange', () => setFullscreenOverlay(isFullScreen()));
-  document.addEventListener('mozfullscreenchange', () => setFullscreenOverlay(isFullScreen()));
-  document.addEventListener('msfullscreenchange', () => setFullscreenOverlay(isFullScreen()));
-
-  // Совершенствуем installYtBlockers (автоматизация зон блокировки)
-  window.installYtBlockers = function(slot) {
-    // top area (название и канал)
-    const tl = document.createElement('div');
-    tl.className = 'yt-blocker yt-blocker-tl';
-    tl.style.cssText = 'position:absolute;top:0;left:0;width:75%;height:22%;z-index:50;background:transparent;pointer-events:auto;';
-    slot.appendChild(tl);
-
-    // top right area (настройка, звук и т.д.)
-    const tr = document.createElement('div');
-    tr.className = 'yt-blocker yt-blocker-tr';
-    tr.style.cssText = 'position:absolute;top:0;right:0;width:25%;height:22%;z-index:50;background:transparent;pointer-events:auto;transition:opacity 1s;';
-    slot.appendChild(tr);
-    setTimeout(() => { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(()=>tr.remove(), 1000); }, 7000);
-
-    // bottom area — шар/share, часы/таймер, YouTube-лого/кнопка и рекомендации
-    const bot = document.createElement('div');
-    bot.className = 'yt-blocker yt-blocker-bot';
-    bot.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:18%;z-index:50;background:transparent;pointer-events:auto;';
-    slot.appendChild(bot);
-
-    // Специально: если fullscreen overlay активен — увеличиваем топ overlay на 20%, низ на 10%
-    if (isFullScreen()) setFullscreenOverlay(true);
-  };
+  // Демо-режим: если курсы уже загружены до входа — показать превью
+  if (courses.length > 0 && !currentUser) renderDemoGrid();
 
 })();
