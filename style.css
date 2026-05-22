@@ -312,11 +312,11 @@ body.cursor-active * { cursor: none !important; }
 /* ════════════════════════════ LOGIN PAGE ═══════════════════════════ */
 #login-page {
   min-height: 100vh;
-  display: flex; align-items: center; justify-content: center;
-  padding: calc(var(--header-h) + 28px) 20px 60px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: calc(var(--header-h) + 40px) 20px 60px;
   position: relative;
 }
-.login-scene { position: relative; z-index: 1; width: 100%; max-width: 520px; }
+.login-scene { position: relative; z-index: 1; width: 100%; max-width: 520px; flex-shrink: 0; }
 
 /* Floating deco cards */
 .login-deco { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
@@ -1247,8 +1247,13 @@ body.cursor-active * { cursor: none !important; }
 /* Login page центрируется при отображении — JS переключает display:flex */
 #login-page {
   display: none;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: calc(var(--header-h) + 40px);
+  padding-bottom: 60px;
+  min-height: 100vh;
+  gap: 0;
 }
 
 /* ── 2. Field without icon ─────────────────────────────────────────── */
@@ -1449,17 +1454,44 @@ a:active, button:active, .clickable:active { opacity: .75; }
   max-height: 100vh;
   object-fit: contain;
 }
-/* Кнопка fullscreen */
+/* Кнопка выхода из fullscreen поверх видео */
+.video-container.custom-fullscreen #fs-btn {
+  position: fixed !important;
+  top: 14px !important;
+  right: 14px !important;
+  z-index: 9600 !important;
+  background: rgba(0,0,0,0.65) !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  padding: 10px !important;
+  backdrop-filter: blur(6px) !important;
+}
+.video-container.custom-fullscreen #fs-btn:hover {
+  background: rgba(245,200,66,0.25) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+/* Кнопка fullscreen внутри контейнера */
 .fs-btn {
   flex-shrink: 0;
-  padding: 7px 10px !important;
-  border-color: var(--border2) !important;
-  color: var(--text3) !important;
+  background: rgba(0,0,0,0.55) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+  border-radius: 9px !important;
+  padding: 8px 10px !important;
+  backdrop-filter: blur(4px);
+}
+.video-container:hover #fs-btn {
+  opacity: 1 !important;
+}
+.video-container.custom-fullscreen #fs-btn {
+  opacity: 1 !important;
 }
 .fs-btn:hover {
   border-color: var(--gold) !important;
   color: var(--gold) !important;
-  background: rgba(245,200,66,0.07) !important;
+  background: rgba(245,200,66,0.15) !important;
 }
 
 /* ════════════════════════════ DEMO GRID (превью) ══════════════════ */
