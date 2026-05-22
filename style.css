@@ -1408,7 +1408,106 @@ body.cursor-active * { cursor: none !important; }
   }
 }
 
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+
+/* ════════════════════════════ CURSOR REPLACEMENT ══════════════════
+   Кастомный JS-курсор удалён. Вместо него — CSS hover-подсветка.   */
+.cursor, .cursor-follower { display: none !important; }
+body.cursor-active * { cursor: auto !important; }
+
+a, button, [role="button"], .clickable, .platform-card, .action-card {
+  transition: opacity .15s;
+}
+a:active, button:active, .clickable:active { opacity: .75; }
+
+/* ════════════════════════════ КАСТОМНЫЙ FULLSCREEN ════════════════ */
+.video-container.custom-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9500 !important;
+  border-radius: 0 !important;
+  aspect-ratio: unset !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000 !important;
+}
+.video-container.custom-fullscreen #video-slot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-container.custom-fullscreen #video-slot iframe,
+.video-container.custom-fullscreen #video-slot video {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100vh;
+  object-fit: contain;
+}
+/* Кнопка fullscreen */
+.fs-btn {
+  flex-shrink: 0;
+  padding: 7px 10px !important;
+  border-color: var(--border2) !important;
+  color: var(--text3) !important;
+}
+.fs-btn:hover {
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+  background: rgba(245,200,66,0.07) !important;
+}
+
+/* ════════════════════════════ DEMO GRID (превью) ══════════════════ */
+.demo-locked-card {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  filter: saturate(0.55);
+  transition: filter .3s, transform .3s var(--ease), box-shadow .3s var(--ease) !important;
+}
+.demo-locked-card:hover {
+  filter: saturate(0.75);
+  transform: translateY(-4px) !important;
+}
+.demo-lock-badge {
+  position: absolute;
+  top: 14px; right: 14px;
+  font-size: 18px;
+  opacity: .7;
+  pointer-events: none;
+}
+
+/* ════════════════════════════ "НАЧНИ ЗДЕСЬ" BADGE ═════════════════ */
+.cursor-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: 6px; padding: 3px 8px;
+  font-size: 10px; font-weight: 800; letter-spacing: .5px;
+  flex-shrink: 0; white-space: nowrap;
+  text-transform: uppercase;
+}
+.cursor-tag.start {
+  animation: start-pulse 1.8s ease-in-out infinite;
+}
+@keyframes start-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .7; transform: scale(1.04); }
+}
+.cursor-tag.here {
+  animation: here-glow 2s ease-in-out infinite;
+}
+@keyframes here-glow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%       { box-shadow: 0 0 0 4px rgba(245,200,66,0.2); }
+}
+/* Текущий урок — лёгкий фон */
+.lesson-list li.is-current-lesson {
+  background: rgba(245,200,66,0.05);
+  border-radius: 8px;
+  padding-left: 6px;
+  border-left: 2px solid var(--gold);
 }
