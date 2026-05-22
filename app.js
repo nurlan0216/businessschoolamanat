@@ -681,10 +681,17 @@ function toggleCustomFullscreen() {
       </svg>`;
     document.body.style.overflow = '';
   }
-  // Пересчитываем блокировщики YouTube под новый размер — ждём 2 фрейма чтобы CSS успел примениться
-  const slot = $('video-slot');
-  if (slot && container.querySelector('iframe[id="yt-player-iframe"]')) {
-    setTimeout(function() { installYtBlockers(slot); }, 60);
+  // Пересчитываем блокировщики после fullscreen-переключения
+  // requestAnimationFrame гарантирует чтение offsetWidth ПОСЛЕ reflow браузера
+  var slot = $('video-slot');
+  if (slot && container.querySelector('#yt-player-iframe')) {
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        installYtBlockers(slot);
+        setTimeout(function() { installYtBlockers(slot); }, 100);
+        setTimeout(function() { installYtBlockers(slot); }, 350);
+      });
+    });
   }
 }
 
