@@ -997,6 +997,10 @@ body.cursor-active * { cursor: none !important; }
   margin-bottom: 20px; aspect-ratio: 16/9;
   box-shadow: 0 14px 44px rgba(0,0,0,0.6);
 }
+#video-slot {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
 .video-container iframe, #video-slot > iframe {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;
 }
@@ -1443,9 +1447,6 @@ a:active, button:active, .clickable:active { opacity: .75; }
 .video-container.custom-fullscreen #video-slot {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 .video-container.custom-fullscreen #video-slot iframe,
 .video-container.custom-fullscreen #video-slot video {
