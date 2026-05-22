@@ -681,6 +681,14 @@ function toggleCustomFullscreen() {
       </svg>`;
     document.body.style.overflow = '';
   }
+  // Пересчитываем блокировщики YouTube под новый размер контейнера
+  const slot = $('video-slot');
+  if (slot && slot.querySelector('iframe[id="yt-player-iframe"]')) {
+    requestAnimationFrame(() => {
+      slot.querySelectorAll('.yt-blocker').forEach(el => el.remove());
+      installYtBlockers(slot);
+    });
+  }
 }
 
 // ══════════════════════════════ СКРОЛЛ К "НАЧНИ ЗДЕСЬ" ═══════════
@@ -840,6 +848,7 @@ function renderLessonList(idx) {
 
 // ══════════════════════════════ CLOSE LESSON ══════════════════════
 function closeLesson() {
+  if (isCustomFullscreen) toggleCustomFullscreen();
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
   $('video-slot').innerHTML = '';
@@ -880,25 +889,57 @@ function showUniversalPlayOverlay(onPlayCallback) {
   btn.addEventListener('touchend', function (e) { e.preventDefault(); onPlayCallback(); });
 }
 // ========= УНИВЕРСАЛЬНЫЕ БЛОКИРАТОРЫ ЗОН YOUTUBE =========
+function getVideoRect(slot) {
+  // В fullscreen YouTube показывает видео в letterbox (16:9 внутри контейнера).
+  // Считаем реальный размер и отступы видеоизображения.
+  const sw = slot.offsetWidth;
+  const sh = slot.offsetHeight;
+  const aspect = 16 / 9;
+  let vw, vh, ox, oy;
+  if (sw / sh > aspect) {
+    // Pillarbox: чёрные полосы слева/справа
+    vh = sh; vw = Math.round(sh * aspect);
+    ox = Math.round((sw - vw) / 2); oy = 0;
+  } else {
+    // Letterbox: чёрные полосы сверху/снизу
+    vw = sw; vh = Math.round(sw / aspect);
+    ox = 0; oy = Math.round((sh - vh) / 2);
+  }
+  return { vw, vh, ox, oy };
+}
+
 function installYtBlockers(slot) {
-  // Левый верх — название видео + канал
+  // Удаляем старые блокировщики если есть
+  slot.querySelectorAll('.yt-blocker').forEach(el => el.remove());
+
+  const { vw, vh, ox, oy } = getVideoRect(slot);
+
+  // Левый верх — название видео + канал (72% ширины, 22% высоты видео)
   const tl = document.createElement('div');
   tl.className = 'yt-blocker yt-blocker-tl';
-  tl.style.cssText = 'position:absolute;top:0;left:0;width:72%;height:22%;z-index:50;background:transparent;pointer-events:auto';
+  tl.style.cssText = `position:absolute;top:${oy}px;left:${ox}px;width:${Math.round(vw * 0.72)}px;height:${Math.round(vh * 0.22)}px;z-index:50;background:transparent;pointer-events:auto`;
   slot.appendChild(tl);
 
-  // Правый верх — кнопки звук/CC/настройки (на 7с, чтобы юзер всё-таки мог запустить)
+  // Правый верх — кнопки звук/CC/настройки (исчезают через 7с)
   const tr = document.createElement('div');
   tr.className = 'yt-blocker yt-blocker-tr';
-  tr.style.cssText = 'position:absolute;top:0;right:0;width:28%;height:22%;z-index:50;background:transparent;pointer-events:auto;transition:opacity 1s ease';
+  tr.style.cssText = `position:absolute;top:${oy}px;left:${ox + Math.round(vw * 0.72)}px;width:${Math.round(vw * 0.28)}px;height:${Math.round(vh * 0.22)}px;z-index:50;background:transparent;pointer-events:auto;transition:opacity 1s ease`;
   slot.appendChild(tr);
-  setTimeout(() => { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(()=>tr.remove(), 1000); }, 7000);
+  setTimeout(() => { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(() => tr.remove(), 1000); }, 7000);
 
-  // Низ — share/часы/YouTube-лого/recommendations
+  // Низ — share/часы/YouTube-лого/recommendations (18% высоты видео)
   const bot = document.createElement('div');
   bot.className = 'yt-blocker yt-blocker-bot';
-  bot.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:18%;z-index:50;background:transparent;pointer-events:auto';
+  bot.style.cssText = `position:absolute;bottom:${oy}px;left:${ox}px;width:${vw}px;height:${Math.round(vh * 0.18)}px;z-index:50;background:transparent;pointer-events:auto`;
   slot.appendChild(bot);
+
+  // При изменении размера (например вход/выход из fullscreen) — обновляем
+  const ro = new ResizeObserver(() => {
+    if (!slot.isConnected) { ro.disconnect(); return; }
+    slot.querySelectorAll('.yt-blocker').forEach(el => el.remove());
+    installYtBlockers(slot);
+  });
+  ro.observe(slot);
 }
 
 // ========= YOUTUBE END-OF-VIDEO DETECTION =========
