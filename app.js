@@ -887,14 +887,11 @@ function showUniversalPlayOverlay(onPlayCallback) {
 }
 // ========= УНИВЕРСАЛЬНЫЕ БЛОКИРАТОРЫ ЗОН YOUTUBE =========
 function installYtBlockers(slot) {
-  // Блокировщики вешаем на video-container (у него position:relative + overflow:hidden)
   const container = $('video-container');
   if (!container) return;
 
-  // Удаляем старые блокировщики
-  container.querySelectorAll('.yt-blocker').forEach(el => el.remove());
+  container.querySelectorAll('.yt-blocker').forEach(function(el) { el.remove(); });
 
-  // Размер контейнера — именно он виден пользователю
   const sw = container.offsetWidth;
   const sh = container.offsetHeight;
   const aspect = 16 / 9;
@@ -907,46 +904,41 @@ function installYtBlockers(slot) {
     ox = 0; oy = Math.round((sh - vh) / 2);
   }
 
-  // ── Верх-лево: название видео + канал (72% × 22%) ──
-  const tl = document.createElement('div');
-  tl.className = 'yt-blocker yt-blocker-tl';
-  tl.style.cssText = 'position:absolute;top:' + oy + 'px;left:' + ox + 'px;' +
-    'width:' + Math.round(vw * 0.72) + 'px;height:' + Math.round(vh * 0.22) + 'px;' +
-    'z-index:55;background:transparent;pointer-events:auto;cursor:default';
-  container.appendChild(tl);
+  const topH = Math.round(vh * 0.22);  // верхняя панель: название + канал + CC + звук + шестерня
+  const botH = Math.round(vh * 0.32);  // нижняя панель: прогресс-бар + share + часы + лого
+  const sideW = Math.round(vw * 0.12); // боковые полосы (логотип, watermark)
+  const sideH = vh - topH - botH;
 
-  // ── Верх-право: CC/звук/настройки — исчезает через 7с ──
-  const tr = document.createElement('div');
-  tr.className = 'yt-blocker yt-blocker-tr';
-  tr.style.cssText = 'position:absolute;top:' + oy + 'px;left:' + (ox + Math.round(vw * 0.72)) + 'px;' +
-    'width:' + Math.round(vw * 0.28) + 'px;height:' + Math.round(vh * 0.22) + 'px;' +
-    'z-index:55;background:transparent;pointer-events:auto;cursor:default;transition:opacity 1s ease';
-  container.appendChild(tr);
-  setTimeout(function() { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(function() { tr.remove(); }, 1000); }, 7000);
+  function mkB(x, y, w, h, cur, zi) {
+    var d = document.createElement('div');
+    d.className = 'yt-blocker';
+    d.style.cssText = 'position:absolute;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + w + 'px;height:' + h + 'px;' +
+      'z-index:' + (zi || 55) + ';background:transparent;pointer-events:auto;cursor:' + (cur || 'default');
+    return d;
+  }
 
-  // ── Низ: вся нижняя панель YouTube (прогресс-бар + share/часы/лого) — 100% ширины × 32% высоты ──
-  const botH = Math.round(vh * 0.32);
-  const bot = document.createElement('div');
-  bot.className = 'yt-blocker yt-blocker-bot';
-  bot.style.cssText = 'position:absolute;bottom:' + oy + 'px;left:' + ox + 'px;' +
-    'width:' + vw + 'px;height:' + botH + 'px;' +
-    'z-index:55;background:transparent;pointer-events:auto;cursor:default';
-  container.appendChild(bot);
+  // ТОП: вся верхняя полоса — ПОСТОЯННАЯ (не исчезает)
+  container.appendChild(mkB(ox, oy, vw, topH));
 
-  // ── Правый нижний угол: кнопка fullscreen YouTube — перехватываем → наш fullscreen ──
-  // Зона поверх bot: 30% ширины × 32% высоты, z-index выше чтобы клики проходили к нам
-  const fsW = Math.round(vw * 0.30);
-  const fsH = botH;
-  const fsZone = document.createElement('div');
-  fsZone.className = 'yt-blocker yt-blocker-fs';
-  fsZone.style.cssText = 'position:absolute;bottom:' + oy + 'px;left:' + (ox + vw - fsW) + 'px;' +
-    'width:' + fsW + 'px;height:' + fsH + 'px;' +
-    'z-index:60;background:transparent;pointer-events:auto;cursor:pointer';
-  fsZone.addEventListener('click', function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
+  // ЛЕВО: боковая полоса
+  container.appendChild(mkB(ox, oy + topH, sideW, sideH));
+
+  // ПРАВО: боковая полоса
+  container.appendChild(mkB(ox + vw - sideW, oy + topH, sideW, sideH));
+
+  // НИЗ: вся нижняя панель — прогресс-бар + share + часы + YouTube лого (100% ширины)
+  container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
+
+  // НИЗ-ПРАВО поверх: перехват кнопки fullscreen YouTube → наш кастомный fullscreen
+  var fsW = Math.round(vw * 0.30);
+  var fsZone = mkB(ox + vw - fsW, oy + vh - botH, fsW, botH, 'pointer', 60);
+  fsZone.className += ' yt-blocker-fs';
+  fsZone.addEventListener('click',    function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
   fsZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
   container.appendChild(fsZone);
 
-  // ── ResizeObserver: пересчёт при fullscreen toggle ──
+  // ResizeObserver: пересчёт при resize / fullscreen toggle
   if (container._ytBlockerRO) container._ytBlockerRO.disconnect();
   var ro = new ResizeObserver(function() {
     if (!container.isConnected) { ro.disconnect(); return; }
