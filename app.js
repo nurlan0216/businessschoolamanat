@@ -1,13 +1,13 @@
 /* ============================================================
-   BUSINESS SCHOOL AMANAT — APP LOGIC v3.2 (UPDATED)
+   BUSINESS SCHOOL AMANAT — APP LOGIC v3.3 (SECURITY + CLOUD PROGRESS + ERROR PAGES)
    ============================================================ */
 
 'use strict';
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
-const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbxS5Be4kiO3OD9LDwxfnUz56waz2aQMNfMrj3wmKz0FIFlaNsiJdypy4V2xukhlI07k/exec';
-const ADMIN_PASSWORD   = 'N20020216$$';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbywfO2d6H0vrXWZUIm3-Ykn5bwIfDC93tPhfNY-eoF4MfQY0Yu4CJiewTQrsVp_vgQk/exec';
+const ADMIN_PASSWORD_HASH = '7404297e91a4ab5b540fceefb2c0030cc24965b1ac4591c774435421b5d8b9ad'; // SHA-256, пароль не хранится в открытом виде
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
 // ══════════════════════════════ STATE ══════════════════════════════
@@ -337,7 +337,7 @@ async function loadSheet2() {
     } finally {
       clearTimeout(timeoutId);
     }
-    if (!res.ok) { console.error('Sheet2 HTTP error', res.status); showSheetError(); return; }
+    if (!res.ok) { console.error('Sheet2 HTTP error', res.status); showNetworkError('http_' + res.status); return; }
     const csv  = await res.text();
     const rows = parseCSV(csv);
 
@@ -426,6 +426,53 @@ function parseLesson(raw) {
   return { type: 'video', url: raw, name: '' };
 }
 
+// ══════════════════════════════ NETWORK ERROR PAGE ═══════════════
+function showNetworkError(code) {
+  // Показываем красивый экран ошибки с кнопкой "Попробовать снова"
+  // Не трогаем страницу логина — показываем оверлей поверх
+  let overlay = $('network-error-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'network-error-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(6,6,8,0.92);backdrop-filter:blur(8px)';
+    overlay.innerHTML = `
+      <div style="background:#0f0f16;border:1px solid rgba(255,255,255,0.08);border-radius:22px;padding:40px 32px;max-width:420px;width:100%;text-align:center;font-family:'Syne',sans-serif">
+        <div style="font-size:52px;margin-bottom:16px">⚠️</div>
+        <h2 id="net-err-title" style="color:#f5c842;font-size:20px;font-weight:800;margin-bottom:10px;letter-spacing:-0.3px">Сервер данных недоступен</h2>
+        <p id="net-err-sub" style="color:#8080a8;font-size:13px;line-height:1.65;margin-bottom:8px">Не удалось загрузить данные платформы. Проверьте интернет-соединение.</p>
+        <p id="net-err-code" style="color:#444466;font-size:11px;font-family:monospace;margin-bottom:28px"></p>
+        <button id="net-err-retry" onclick="retryLoadSheet()" style="width:100%;padding:13px;background:linear-gradient(135deg,#f5c842,#e8b430);color:#000;font-weight:800;font-size:14px;border:none;border-radius:12px;cursor:pointer;font-family:'Syne',sans-serif;letter-spacing:0.3px;transition:opacity .2s">
+          🔄 Попробовать снова
+        </button>
+        <button onclick="hideNetworkError()" style="width:100%;padding:10px;margin-top:10px;background:transparent;color:#8080a8;font-size:13px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;font-family:'Syne',sans-serif">
+          Закрыть
+        </button>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  // Обновляем текст ошибки
+  const codeEl = $('net-err-code');
+  if (codeEl && code) codeEl.textContent = 'Код ошибки: ' + code;
+  overlay.style.display = 'flex';
+}
+
+function hideNetworkError() {
+  const overlay = $('network-error-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function retryLoadSheet() {
+  const btn = $('net-err-retry');
+  if (btn) { btn.textContent = '⏳ Загружаем...'; btn.disabled = true; }
+  hideNetworkError();
+  await loadSheet2();
+  if (btn) { btn.textContent = '🔄 Попробовать снова'; btn.disabled = false; }
+}
+
+function showSheetError() {
+  showNetworkError('sheet_unavailable');
+}
+
 // ══════════════════════════════ APPLY LINKS ═══════════════════════
 function applyLinks() {
   const setLink = (id, url, fallback) => {
@@ -455,8 +502,54 @@ const getWatchKey = (ci, li) => `${ci}-${li}`;
 const isWatched   = (ci, li) => !!watchedLessons[getWatchKey(ci, li)];
 
 function markWatched(ci, li) {
-  watchedLessons[getWatchKey(ci, li)] = true;
+  const key = getWatchKey(ci, li);
+  if (watchedLessons[key]) return; // уже отмечен — не дублируем запрос
+  watchedLessons[key] = true;
   localStorage.setItem('watched_lessons', JSON.stringify(watchedLessons));
+  // Сохраняем прогресс в Google Sheets через лог-скрипт
+  syncProgressToSheet(ci, li);
+}
+
+function syncProgressToSheet(ci, li) {
+  if (!LOG_SCRIPT_URL || LOG_SCRIPT_URL.includes('ВАШИ_ID')) return;
+  let iin = null;
+  try { iin = sessionStorage.getItem('bs_iin'); } catch(_) {}
+  if (!iin || !currentUser) return;
+  const course = courses[ci];
+  if (!course) return;
+  const courseName = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+  try {
+    fetch(LOG_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        _type: 'progress',
+        iin, name: currentUser,
+        courseIdx: ci, lessonIdx: li,
+        courseName,
+        watchedJson: JSON.stringify(watchedLessons),
+        date: new Date().toLocaleDateString('ru-RU'),
+        time: new Date().toLocaleTimeString('ru-RU')
+      })
+    });
+  } catch(e) { console.warn('Progress sync error:', e); }
+}
+
+async function restoreProgressFromSheet(iin) {
+  if (!LOG_SCRIPT_URL || LOG_SCRIPT_URL.includes('ВАШИ_ID') || !iin) return;
+  try {
+    // Запрашиваем сохранённый прогресс через параметр GET
+    const url = LOG_SCRIPT_URL + '?action=getProgress&iin=' + encodeURIComponent(iin);
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.watchedJson) {
+      const remote = JSON.parse(data.watchedJson);
+      // Мерджим: берём объединение localStorage + удалённого прогресса
+      Object.assign(watchedLessons, remote);
+      localStorage.setItem('watched_lessons', JSON.stringify(watchedLessons));
+    }
+  } catch(e) { /* тихо — прогресс из localStorage всё равно есть */ }
 }
 function getLessons(idx) {
   const c = courses[idx];
@@ -1396,6 +1489,9 @@ async function doLogin() {
     sessionStorage.setItem('bs_iin',  iin);
   } catch (_) {}
 
+  // Подтягиваем облачный прогресс при первом входе
+  await restoreProgressFromSheet(iin);
+
   $('login-success').textContent   = t('ok') + ' ' + currentUser + '!';
   $('login-success').style.display = 'block';
   await loadSheet2();
@@ -1489,8 +1585,14 @@ function openAdminPw() {
   $('admin-pw-modal').classList.add('show');
   setTimeout(() => $('admin-pw-input').focus(), 200);
 }
-function checkAdminPw() {
-  if ($('admin-pw-input').value === ADMIN_PASSWORD) {
+async function checkAdminPw() {
+  const input = $('admin-pw-input').value;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  if (hashHex === ADMIN_PASSWORD_HASH) {
     closeModal('admin-pw-modal');
     openAdmin();
   } else {
@@ -1605,6 +1707,8 @@ async function tryRestoreSession() {
   if (!savedUser || !savedIin) return false;
   
   currentUser = savedUser;
+  // Пробуем восстановить прогресс из облака (мержим с localStorage)
+  await restoreProgressFromSheet(savedIin);
   await loadSheet2();
   showLessons();
   return true;
