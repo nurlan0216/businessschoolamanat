@@ -894,15 +894,15 @@ function showUniversalPlayOverlay(onPlayCallback) {
 }
 // ========= УНИВЕРСАЛЬНЫЕ БЛОКИРАТОРЫ ЗОН YOUTUBE =========
 function installYtBlockers(slot) {
-  const container = $('video-container');
+  var container = $('video-container');
   if (!container) return;
 
   container.querySelectorAll('.yt-blocker').forEach(function(el) { el.remove(); });
 
-  const sw = container.offsetWidth;
-  const sh = container.offsetHeight;
-  const aspect = 16 / 9;
-  let vw, vh, ox, oy;
+  var sw = container.offsetWidth;
+  var sh = container.offsetHeight;
+  var aspect = 16 / 9;
+  var vw, vh, ox, oy;
   if (sw / sh > aspect) {
     vh = sh; vw = Math.round(sh * aspect);
     ox = Math.round((sw - vw) / 2); oy = 0;
@@ -911,41 +911,72 @@ function installYtBlockers(slot) {
     ox = 0; oy = Math.round((sh - vh) / 2);
   }
 
-  const topH = Math.round(vh * 0.22);  // верхняя панель: название + канал + CC + звук + шестерня
-  const botH = Math.round(vh * 0.32);  // нижняя панель: прогресс-бар + share + часы + лого
-  const sideW = Math.round(vw * 0.12); // боковые полосы (логотип, watermark)
-  const sideH = vh - topH - botH;
-
   function mkB(x, y, w, h, cur, zi) {
     var d = document.createElement('div');
     d.className = 'yt-blocker';
     d.style.cssText = 'position:absolute;left:' + x + 'px;top:' + y + 'px;' +
       'width:' + w + 'px;height:' + h + 'px;' +
-      'z-index:' + (zi || 55) + ';background:transparent;pointer-events:auto;cursor:' + (cur || 'default');
+      'z-index:' + (zi || 9600) + ';background:transparent;pointer-events:auto;cursor:' + (cur || 'default');
     return d;
   }
 
-  // ТОП: вся верхняя полоса — ПОСТОЯННАЯ (не исчезает)
-  container.appendChild(mkB(ox, oy, vw, topH));
+  if (isCustomFullscreen) {
+    // ═══ FULLSCREEN-РЕЖИМ: весь контейнер заблокирован, только центр для паузы ═══
 
-  // ЛЕВО: боковая полоса
-  container.appendChild(mkB(ox, oy + topH, sideW, sideH));
+    var centerW = Math.round(vw * 0.44);  // центральная зона для паузы/плея
+    var centerH = Math.round(vh * 0.44);
+    var centerX = ox + Math.round((vw - centerW) / 2);
+    var centerY = oy + Math.round((vh - centerH) / 2);
 
-  // ПРАВО: боковая полоса
-  container.appendChild(mkB(ox + vw - sideW, oy + topH, sideW, sideH));
+    // ТОП: весь верх (от края до центральной зоны)
+    container.appendChild(mkB(ox, oy, vw, centerY - oy));
 
-  // НИЗ: вся нижняя панель — прогресс-бар + share + часы + YouTube лого (100% ширины)
-  container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
+    // ЛЕВО от центра
+    container.appendChild(mkB(ox, centerY, centerX - ox, centerH));
 
-  // НИЗ-ПРАВО поверх: перехват кнопки fullscreen YouTube → наш кастомный fullscreen
-  var fsW = Math.round(vw * 0.30);
-  var fsZone = mkB(ox + vw - fsW, oy + vh - botH, fsW, botH, 'pointer', 60);
-  fsZone.className += ' yt-blocker-fs';
-  fsZone.addEventListener('click',    function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
-  fsZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
-  container.appendChild(fsZone);
+    // ПРАВО от центра
+    container.appendChild(mkB(centerX + centerW, centerY, ox + vw - (centerX + centerW), centerH));
 
-  // ResizeObserver: пересчёт при resize / fullscreen toggle
+    // НИЗ: весь низ (от центральной зоны до края)
+    container.appendChild(mkB(ox, centerY + centerH, vw, oy + vh - (centerY + centerH)));
+
+    // Выход из fullscreen — только свайп/кнопка назад:
+    // Кнопка "назад" (верх-лево, большая зона для удобного тапа)
+    var backZone = mkB(ox, oy, Math.round(vw * 0.18), Math.round(vh * 0.18), 'pointer', 9700);
+    backZone.className += ' yt-blocker-back';
+    backZone.title = 'Выйти из полного экрана';
+    backZone.addEventListener('click',    function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
+    backZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
+    container.appendChild(backZone);
+
+  } else {
+    // ═══ ОБЫЧНЫЙ РЕЖИМ: блокируем только панели YouTube ═══
+
+    var topH = Math.round(vh * 0.22);
+    var botH = Math.round(vh * 0.32);
+    var sideW = Math.round(vw * 0.12);
+    var sideH = vh - topH - botH;
+
+    // ТОП: название + канал + CC + звук + шестерня (постоянная)
+    container.appendChild(mkB(ox, oy, vw, topH));
+
+    // ЛЕВО и ПРАВО: боковые полосы
+    container.appendChild(mkB(ox, oy + topH, sideW, sideH));
+    container.appendChild(mkB(ox + vw - sideW, oy + topH, sideW, sideH));
+
+    // НИЗ: прогресс-бар + share + часы + YouTube лого (100% ширины)
+    container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
+
+    // НИЗ-ПРАВО поверх: перехват кнопки fullscreen → наш fullscreen (z-index выше)
+    var fsW = Math.round(vw * 0.30);
+    var fsZone = mkB(ox + vw - fsW, oy + vh - botH, fsW, botH, 'pointer', 9700);
+    fsZone.className += ' yt-blocker-fs';
+    fsZone.addEventListener('click',    function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
+    fsZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
+    container.appendChild(fsZone);
+  }
+
+  // ResizeObserver: пересчёт при resize
   if (container._ytBlockerRO) container._ytBlockerRO.disconnect();
   var ro = new ResizeObserver(function() {
     if (!container.isConnected) { ro.disconnect(); return; }
@@ -1759,6 +1790,51 @@ document.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') nextLesson();
   }
 });
+
+// ══════════════════════════════ FULLSCREEN BACK-BUTTON TRAP ═════
+// Перехватываем кнопку "назад" Android — в fullscreen выходим из него, не из страницы
+(function() {
+  var fsHistoryPushed = false;
+
+  // Когда входим в fullscreen — пушим фиктивную запись в history
+  // чтобы кнопка "назад" сначала возвращала сюда
+  var _origToggle = toggleCustomFullscreen;
+  toggleCustomFullscreen = function() {
+    _origToggle();
+    if (isCustomFullscreen) {
+      // вошли в fullscreen — добавляем запись
+      history.pushState({ ytFs: true }, '');
+      fsHistoryPushed = true;
+    } else {
+      // вышли из fullscreen
+      if (fsHistoryPushed) {
+        fsHistoryPushed = false;
+        // не делаем history.back() — мы уже вышли
+      }
+    }
+  };
+
+  // Кнопка "назад" браузера/Android
+  window.addEventListener('popstate', function(e) {
+    if (isCustomFullscreen) {
+      // выходим из fullscreen вместо навигации назад
+      fsHistoryPushed = false;
+      _origToggle(); // вызываем оригинал напрямую чтобы не дублировать pushState
+    }
+  });
+
+  // Свайп вниз (touchstart/touchend) в fullscreen — блокируем
+  var _touchStartY = 0;
+  document.addEventListener('touchstart', function(e) {
+    _touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    if (!isCustomFullscreen) return;
+    var dy = e.changedTouches[0].clientY - _touchStartY;
+    // Свайп вниз больше 80px в fullscreen — выходим
+    if (dy > 80) { if (isCustomFullscreen) toggleCustomFullscreen(); }
+  }, { passive: true });
+})();
 
 // ══════════════════════════════ INPUT HELPERS ═════════════════════
 $('inp-iin').addEventListener('input',   function () { this.value = this.value.replace(/\D/g, ''); });
