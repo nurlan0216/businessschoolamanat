@@ -932,7 +932,11 @@ function playLesson(courseIdx, lessonAbsIdx) {
         slot.appendChild(iframe);
 
         // Универсальные оверлеи — авто-блокировка зон YouTube (название/канал, share/часы, лого YouTube)
-        installYtBlockers(slot);
+        if (window.installYtBlockers) {
+          window.installYtBlockers(slot);
+        } else {
+          installYtBlockers(slot);
+        }
         // Авто-детект окончания видео через postMessage YouTube IFrame API
         attachYtEndListener(iframe);
       });
@@ -1669,14 +1673,14 @@ async function tryRestoreSession() {
     $('lessons-page').style.display = 'none';
   }
 
-   // === УМНЫЙ КУРСОР-КУРАТОР И FULLSCREEN OVERLAY ===
+  // === УМНЫЙ КУРСОР-КУРАТОР и FULLSCREEN OVERLAY ===
 
-// СТИЛЬ для всплывающего "курсор-куратора" – можно оставить в js
-(function injectSmartCursorStyle() {
-  if (!document.getElementById('smart-cursor-style')) {
-    const style = document.createElement('style');
-    style.id = 'smart-cursor-style';
-    style.textContent = `
+  // Стили
+  (function injectSmartCursorStyle() {
+    if (!document.getElementById('smart-cursor-style')) {
+      const style = document.createElement('style');
+      style.id = 'smart-cursor-style';
+      style.textContent = `
 .smart-cursor-coach {
   position:fixed;z-index:99999;pointer-events:none;user-select:none;
   transition:transform .17s cubic-bezier(.22,1,.36,1),opacity .19s;
@@ -1707,137 +1711,109 @@ async function tryRestoreSession() {
   font-weight:800;box-shadow:0 2px 8px 0 rgba(0,0,0,0.02);
   color:#045c08;text-shadow:0 1px 0 #fff;opacity:.97;pointer-events:none;letter-spacing:.2px;
 }
+      `;
+      document.head.appendChild(style);
+    }
+  })();
+
+  window.showSmartCursorAt = function (x, y, msg) {
+    window.hideSmartCursor();
+    const cursor = document.createElement('div');
+    cursor.className = "smart-cursor-coach";
+    cursor.id = "smart-cursor-coach";
+    cursor.style.left = (x-24) + "px";
+    cursor.style.top = (y-25) + "px";
+    cursor.innerHTML = `
+      <div class="coach-circle">
+        <div class="coach-hand">👉</div>
+      </div>
+      <div class="coach-msg">${msg || "Начни здесь"}</div>
     `;
-    document.head.appendChild(style);
-  }
-})();
+    document.body.appendChild(cursor);
+  };
+  window.hideSmartCursor = function () {
+    const old = document.getElementById('smart-cursor-coach');
+    if (old) old.remove();
+  };
+  
+  // Подсветить "Начни здесь"/"Вы тут"
+  document.addEventListener('DOMContentLoaded', () => {
+    const observer = new MutationObserver(() => {
+      hideSmartCursor();
+      if (document.querySelector('.is-current-lesson') && $('lesson-modal').classList.contains('show')) {
+        const li = document.querySelector('.is-current-lesson');
+        const rect = li.getBoundingClientRect();
+        showSmartCursorAt(rect.left + rect.width/2, rect.top, lang==='kz' ? 'Сіз қазір осында' : 'Вы тут');
+      } else if (document.querySelector('.cursor-tag.start') && $('lesson-modal').classList.contains('show')) {
+        const el = document.querySelector('.cursor-tag.start');
+        const rect = el.getBoundingClientRect();
+        showSmartCursorAt(rect.left + rect.width/2, rect.top, lang==='kz' ? 'Осыдан баста' : 'Начни здесь');
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('scroll', hideSmartCursor, true);
+  });
 
-function showSmartCursorAt(x, y, msg) {
-  hideSmartCursor();
-  const cursor = document.createElement('div');
-  cursor.className = "smart-cursor-coach";
-  cursor.id = "smart-cursor-coach";
-  cursor.style.left = (x-24) + "px";
-  cursor.style.top = (y-25) + "px";
-  cursor.innerHTML = `
-    <div class="coach-circle">
-      <div class="coach-hand">👉</div>
-    </div>
-    <div class="coach-msg">${msg || "Начни здесь"}</div>
-  `;
-  document.body.appendChild(cursor);
-}
-function hideSmartCursor() {
-  const el = document.getElementById('smart-cursor-coach');
-  if (el) el.remove();
-}
+  // === Fullscreen overlays & YouTube blocker ===
 
-// Подсказка "Начни здесь" (после появления списка уроков)
-function smartCoachSuggestStart(ci) {
-  setTimeout(() => {
-    const ul = document.getElementById('lp-list');
-    if (!ul) return;
-    const startLi = ul.querySelector('.cursor-tag.start');
-    if (!startLi) return;
-    const rect = startLi.getBoundingClientRect();
-    showSmartCursorAt(rect.left + rect.width/2, rect.top + rect.height/2, lang==='kz'?'Осыдан баста':'Начни здесь');
-    setTimeout(hideSmartCursor, 3500);
-  }, 500);
-}
-// Подсказка "Вы тут" (при старте урока)
-function smartCoachHere(ci, li) {
-  setTimeout(() => {
-    const ul = document.getElementById('lp-list');
-    if (!ul) return;
-    const hereLi = ul.querySelector('.is-current-lesson');
-    if (!hereLi) return;
-    const rect = hereLi.getBoundingClientRect();
-    showSmartCursorAt(rect.left + rect.width/2, rect.top + rect.height/2, lang==='kz'?'Сіз осында':'Вы тут');
-    setTimeout(hideSmartCursor, 2500);
-  }, 600);
-}
-// Подсказка "Следующий урок" (после окончания видео)
-function smartCoachNextLessonBtn() {
-  setTimeout(() => {
-    const btn = document.getElementById('next-suggest-go');
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    showSmartCursorAt(rect.left + rect.width/2, rect.top + rect.height/2, lang==='kz'?'Келесі сабақ':'Следующий урок');
-    setTimeout(hideSmartCursor, 3500);
-  }, 300);
-}
-
-// ПАТЧИРУЕМ вашу логику: ДОБАВИТЬ вызовы (НЕ заменяет ваши функции!)
-// 1. После renderLessonList — показываем "начни здесь"
-const _renderLessonListOrig = renderLessonList;
-renderLessonList = function(ci) {
-  _renderLessonListOrig.apply(this, arguments);
-  if (_suggestStartLessonIdx !== -1) smartCoachSuggestStart(ci);
-};
-// 2. После playLesson — показываем "вы тут"
-const _playLessonOrig = playLesson;
-playLesson = function(ci, li) {
-  _playLessonOrig.apply(this, arguments);
-  smartCoachHere(ci, li);
-};
-// 3. После showNextSuggestion — "Следующий урок"
-const _showNextSuggestionOrig = showNextSuggestion;
-showNextSuggestion = function() {
-  _showNextSuggestionOrig.apply(this, arguments);
-  setTimeout(smartCoachNextLessonBtn, 80);
-};
-
-// FULLSCREEN OVERLAY — для защиты сверху и снизу
-document.addEventListener('fullscreenchange', function() {
-  const container = document.getElementById('video-container');
-  if (!container || document.fullscreenElement !== container) {
-    // Скрываем оверлеи если вышли из фулскрина
-    const t = document.getElementById('fs-block-top');
-    const b = document.getElementById('fs-block-bot');
-    if (t) t.style.display = 'none';
-    if (b) b.style.display = 'none';
-    return;
+  // Utility to detect fullscreen state
+  function isFullScreen() {
+    return (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement);
   }
-  let fsTop = document.getElementById('fs-block-top');
-  let fsBot = document.getElementById('fs-block-bot');
-  if (!fsTop) {
-    fsTop = document.createElement('div');
-    fsTop.id = 'fs-block-top';
-    fsTop.style = 'position:absolute;top:0;left:0;width:100%;height:20%;background:rgba(0,0,0,0.18);pointer-events:auto;z-index:9000;';
-    container.appendChild(fsTop);
-  }
-  if (!fsBot) {
-    fsBot = document.createElement('div');
-    fsBot.id = 'fs-block-bot';
-    fsBot.style = 'position:absolute;bottom:0;left:0;width:100%;height:10%;background:rgba(0,0,0,0.86);pointer-events:auto;z-index:9000;';
-    container.appendChild(fsBot);
-  }
-  fsTop.style.display = '';
-  fsBot.style.display = '';
-});
-// На всякий случай обновлять оверлеи после playLesson
-const _playLessonForOverlay = playLesson;
-playLesson = function(ci, li) {
-  _playLessonForOverlay.apply(this, arguments);
-  setTimeout(() => {
-    const container = document.getElementById('video-container');
-    if (!container) return;
-    let fsTop = document.getElementById('fs-block-top');
-    let fsBot = document.getElementById('fs-block-bot');
-    if (!fsTop) {
-      fsTop = document.createElement('div');
-      fsTop.id = 'fs-block-top';
-      fsTop.style = 'position:absolute;top:0;left:0;width:100%;height:20%;background:rgba(0,0,0,0.18);pointer-events:auto;z-index:9000;';
-      container.appendChild(fsTop);
+  // Overlay for fullscreen
+  function setFullscreenOverlay(active) {
+    let overlay = document.getElementById('fs-block-overlay');
+    if (active) {
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'fs-block-overlay';
+        overlay.style.cssText = `
+          position:fixed;left:0;right:0;top:0;bottom:0;pointer-events:none;z-index:99995;
+        `;
+        const top = document.createElement('div');
+        top.style.cssText = "position:absolute;left:0;top:0;width:100vw;height:20vh;background:rgba(0,0,0,0.17);";
+        const bottom = document.createElement('div');
+        bottom.style.cssText = "position:absolute;left:0;bottom:0;width:100vw;height:10vh;background:rgba(0,0,0,0.62);";
+        overlay.appendChild(top);
+        overlay.appendChild(bottom);
+        document.body.appendChild(overlay);
+      }
+    } else if (overlay) {
+      overlay.remove();
     }
-    if (!fsBot) {
-      fsBot = document.createElement('div');
-      fsBot.id = 'fs-block-bot';
-      fsBot.style = 'position:absolute;bottom:0;left:0;width:100%;height:10%;background:rgba(0,0,0,0.86);pointer-events:auto;z-index:9000;';
-      container.appendChild(fsBot);
-    }
-    fsTop.style.display = (document.fullscreenElement === container) ? '' : 'none';
-    fsBot.style.display = (document.fullscreenElement === container) ? '' : 'none';
-  }, 400);
-};
+  }
+  document.addEventListener('fullscreenchange', () => setFullscreenOverlay(isFullScreen()));
+  document.addEventListener('webkitfullscreenchange', () => setFullscreenOverlay(isFullScreen()));
+  document.addEventListener('mozfullscreenchange', () => setFullscreenOverlay(isFullScreen()));
+  document.addEventListener('msfullscreenchange', () => setFullscreenOverlay(isFullScreen()));
+
+  // Совершенствуем installYtBlockers (автоматизация зон блокировки)
+  window.installYtBlockers = function(slot) {
+    // top area (название и канал)
+    const tl = document.createElement('div');
+    tl.className = 'yt-blocker yt-blocker-tl';
+    tl.style.cssText = 'position:absolute;top:0;left:0;width:75%;height:22%;z-index:50;background:transparent;pointer-events:auto;';
+    slot.appendChild(tl);
+
+    // top right area (настройка, звук и т.д.)
+    const tr = document.createElement('div');
+    tr.className = 'yt-blocker yt-blocker-tr';
+    tr.style.cssText = 'position:absolute;top:0;right:0;width:25%;height:22%;z-index:50;background:transparent;pointer-events:auto;transition:opacity 1s;';
+    slot.appendChild(tr);
+    setTimeout(() => { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(()=>tr.remove(), 1000); }, 7000);
+
+    // bottom area — шар/share, часы/таймер, YouTube-лого/кнопка и рекомендации
+    const bot = document.createElement('div');
+    bot.className = 'yt-blocker yt-blocker-bot';
+    bot.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:18%;z-index:50;background:transparent;pointer-events:auto;';
+    slot.appendChild(bot);
+
+    // Специально: если fullscreen overlay активен — увеличиваем топ overlay на 20%, низ на 10%
+    if (isFullScreen()) setFullscreenOverlay(true);
+  };
+
 })();
