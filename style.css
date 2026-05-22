@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    BUSINESS SCHOOL AMANAT — PREMIUM DESIGN SYSTEM v3.0
    ============================================================ */
 
@@ -1411,4 +1411,9 @@ body.cursor-active * { cursor: none !important; }
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+/* ════════════════════════════ VIDEO NAV AUTO-HIDE ══════════════════
+   Плавное скрытие/показ навигации плеера при скролле по уроку      */
+.video-nav-row {
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
