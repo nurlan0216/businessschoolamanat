@@ -1604,3 +1604,102 @@ body.video-theater #theater-esc {
   .vc-btn { font-size: 12px; padding: 7px 10px; }
   body.video-theater .custom-vc-bar { gap: 16px; padding: 0 16px !important; }
 }
+/* ══════════════════════════════ REVIEWS SECTION ════════════════════ */
+.reviews-section {
+  margin: 40px 0 8px;
+}
+.reviews-header {
+  margin-bottom: 20px;
+}
+.reviews-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.reviews-subtitle {
+  font-size: 13px;
+  color: var(--text3);
+  margin: 0;
+}
+.reviews-channel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(41,182,246,0.12);
+  color: #29b6f6;
+  border: 1px solid rgba(41,182,246,0.25);
+  border-radius: 20px;
+  padding: 5px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+.reviews-channel-btn:hover {
+  background: rgba(41,182,246,0.22);
+  transform: translateY(-1px);
+}
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.review-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.review-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.review-stars {
+  color: #f5c842;
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+.review-text {
+  font-size: 13.5px;
+  color: var(--text2);
+  line-height: 1.65;
+  margin: 0;
+  flex: 1;
+}
+.review-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.review-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.review-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.review-meta {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 1px;
+}
+@media (max-width: 640px) {
+  .reviews-grid { grid-template-columns: 1fr; }
+}
