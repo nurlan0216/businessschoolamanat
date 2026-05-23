@@ -996,6 +996,15 @@ body.cursor-active * { cursor: none !important; }
   border-radius: var(--r-md); overflow: hidden;
   margin-bottom: 20px; aspect-ratio: 16/9;
   box-shadow: 0 14px 44px rgba(0,0,0,0.6);
+  transition: aspect-ratio .3s var(--ease);
+}
+/* Shorts: vertical 9:16 ratio */
+.video-container.shorts-mode {
+  aspect-ratio: 9/16;
+  max-height: 65vh;
+  max-width: calc(65vh * 9 / 16);
+  margin-left: auto;
+  margin-right: auto;
 }
 .video-container iframe, #video-slot > iframe {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;
@@ -1007,19 +1016,8 @@ body.cursor-active * { cursor: none !important; }
 #tap-right { right: 0; width: 40%; }
 #tap-center { left: 40%; width: 20%; }
 
-.vid-nav {
-  position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
-  background: rgba(0,0,0,0.55); border: none; border-radius: 10px;
-  color: #fff; cursor: pointer; padding: 10px 14px;
-  transition: all .2s; opacity: 0;
-  backdrop-filter: blur(4px);
-}
-.video-container:hover .vid-nav { opacity: 1; }
-.vid-nav:disabled { opacity: 0 !important; pointer-events: none; }
-.vid-nav.left { left: 10px; }
-.vid-nav.right { right: 10px; }
-.vid-nav:hover { background: rgba(245,200,66,0.2); border: 1px solid rgba(245,200,66,0.3); }
-@media (max-width: 640px) { .vid-nav { opacity: .8; } }
+/* Hide the vid-nav prev/next arrows from inside the video */
+.vid-nav { display: none !important; }
 
 /* Completion banner */
 .completion-banner {
@@ -1548,15 +1546,29 @@ body.video-theater {
 /* The video container expands to cover the entire screen */
 .video-container.theater-mode {
   position: fixed !important;
-  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
   width: 100vw !important;
-  height: 100vh !important;
+  height: calc(100vh - 56px) !important; /* leave room for controls bar */
   aspect-ratio: auto !important;
+  max-width: none !important;
+  max-height: none !important;
   border-radius: 0 !important;
   margin: 0 !important;
-  max-width: none !important;
   z-index: 9000 !important;
   background: #000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Video/iframe inside theater mode fills the container proportionally */
+.video-container.theater-mode #video-slot {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Controls bar fixed at bottom during theater mode */
@@ -1565,18 +1577,19 @@ body.video-theater .custom-vc-bar {
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
+  height: 56px !important;
   z-index: 9001 !important;
   border-radius: 0 !important;
   border: none !important;
   border-top: 1px solid rgba(255,255,255,0.08) !important;
   margin: 0 !important;
-  padding: 12px 20px !important;
+  padding: 0 24px !important;
   justify-content: center !important;
-  gap: 16px !important;
+  gap: 20px !important;
+  background: rgba(4,4,8,0.96) !important;
 }
 
 body.video-theater .vc-spacer { display: none; }
-body.video-theater .vc-divider { display: block; }
 
 /* Theater mode — show esc button */
 body.video-theater #theater-esc {
@@ -1585,12 +1598,9 @@ body.video-theater #theater-esc {
   justify-content: center;
 }
 
-/* Prevent vid-nav arrows from showing over controls bar in theater mode */
-body.video-theater .vid-nav { z-index: 9002; }
-
 /* ── Mobile adjustments ── */
 @media (max-width: 640px) {
   .custom-vc-bar { padding: 7px 10px; gap: 4px; }
   .vc-btn { font-size: 12px; padding: 7px 10px; }
-  body.video-theater .custom-vc-bar { gap: 10px; }
+  body.video-theater .custom-vc-bar { gap: 16px; padding: 0 16px !important; }
 }
