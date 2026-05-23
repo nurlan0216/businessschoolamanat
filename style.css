@@ -1439,72 +1439,6 @@ a, button, [role="button"], .clickable, .platform-card, .action-card {
 }
 a:active, button:active, .clickable:active { opacity: .75; }
 
-/* ════════════════════════════ КАСТОМНЫЙ FULLSCREEN ════════════════ */
-.video-container.custom-fullscreen {
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: 9500 !important;
-  border-radius: 0 !important;
-  aspect-ratio: unset !important;
-  margin: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000 !important;
-}
-.video-container.custom-fullscreen #video-slot {
-  position: absolute;
-  inset: 0;
-}
-.video-container.custom-fullscreen #video-slot iframe,
-.video-container.custom-fullscreen #video-slot video {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 100vh;
-  object-fit: contain;
-}
-/* Кнопка выхода из fullscreen поверх видео */
-.video-container.custom-fullscreen #fs-btn {
-  position: fixed !important;
-  top: 14px !important;
-  right: 14px !important;
-  z-index: 9600 !important;
-  background: rgba(0,0,0,0.65) !important;
-  border: 1px solid rgba(255,255,255,0.2) !important;
-  color: #fff !important;
-  border-radius: 10px !important;
-  padding: 10px !important;
-  backdrop-filter: blur(6px) !important;
-}
-.video-container.custom-fullscreen #fs-btn:hover {
-  background: rgba(245,200,66,0.25) !important;
-  border-color: var(--gold) !important;
-  color: var(--gold) !important;
-}
-/* Кнопка fullscreen внутри контейнера */
-.fs-btn {
-  flex-shrink: 0;
-  background: rgba(0,0,0,0.55) !important;
-  border: 1px solid rgba(255,255,255,0.18) !important;
-  color: #fff !important;
-  border-radius: 9px !important;
-  padding: 8px 10px !important;
-  backdrop-filter: blur(4px);
-}
-.video-container:hover #fs-btn {
-  opacity: 1 !important;
-}
-.video-container.custom-fullscreen #fs-btn {
-  opacity: 1 !important;
-}
-.fs-btn:hover {
-  border-color: var(--gold) !important;
-  color: var(--gold) !important;
-  background: rgba(245,200,66,0.15) !important;
-}
 
 /* ════════════════════════════ DEMO GRID (превью) ══════════════════ */
 .demo-locked-card {
@@ -1752,28 +1686,6 @@ a:active, button:active, .clickable:active { opacity: .75; }
   .cp-lesson-title { font-size: 16px; }
 }
 
-/* ══ Кнопка увеличения видео — всегда видна на мобиле ══════════ */
-#fs-btn {
-  opacity: 1 !important;
-  background: rgba(0,0,0,0.70) !important;
-  border: 1.5px solid rgba(255,255,255,0.30) !important;
-  color: #fff !important;
-  border-radius: 10px !important;
-  padding: 10px 12px !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-#fs-btn:active {
-  background: rgba(245,200,66,0.30) !important;
-  border-color: #f5c842 !important;
-}
-.video-container.custom-fullscreen #fs-btn {
-  background: rgba(0,0,0,0.70) !important;
-  border-color: rgba(255,255,255,0.35) !important;
-  opacity: 1 !important;
-}
 
 /* ══ Плавная смена темы ════════════════════════════════════════ */
 html.theme-transitioning *,
