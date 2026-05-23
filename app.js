@@ -717,6 +717,12 @@ function scrollToStartLesson() {
 
 // ══════════════════════════════ OPEN LESSON MODAL ════════════════
 function openLesson(idx) {
+  // Route to the new full-page course player
+  openCoursePlayer(idx);
+}
+
+// Keep legacy modal opener for potential internal use
+function openLessonModal(idx) {
   currentCourseIdx = idx;
   $('video-section').style.display = 'none';
   $('video-slot').innerHTML = '';
@@ -1828,3 +1834,540 @@ async function tryRestoreSession() {
   if (courses.length > 0 && !currentUser) renderDemoGrid();
 
 })();
+
+// ══════════════════════════════════════════════════════════════════════
+//  COURSE PLAYER PAGE  (Bizon365-style full-page layout)
+// ══════════════════════════════════════════════════════════════════════
+
+let cpCourseIdx       = null;
+let cpLessonIdx       = null;
+let cpSearchQuery     = '';
+let cpIsFullscreen    = false;
+let cpFilterTimer     = null;
+
+// ── Open the full-page course player ─────────────────────────────────
+function openCoursePlayer(courseIdx) {
+  cpCourseIdx   = courseIdx;
+  cpLessonIdx   = null;
+  cpSearchQuery = '';
+  currentCourseIdx = courseIdx;
+
+  const course = courses[courseIdx];
+  const name   = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+  const color  = course.hexColor || DEFAULT_COLORS[courseIdx % DEFAULT_COLORS.length];
+
+  // Set accent colour for sidebar active item
+  document.documentElement.style.setProperty('--cp-accent', color);
+
+  // Populate topbar
+  setText('cp-course-title', name);
+  setText('cp-back-label',   lang === 'kz' ? 'Курстарға' : 'Назад к курсам');
+  setText('cp-prev-label',   t('prev'));
+  setText('cp-next-label',   t('next'));
+  setText('cp-sidebar-label', lang === 'kz' ? 'Курс мазмұны' : 'Содержание курса');
+
+  // Show empty state
+  const slot = $('cp-video-slot');
+  if (slot) slot.innerHTML = `<div class="cp-empty-state">
+    <div class="cp-empty-icon">🎬</div>
+    <div class="cp-empty-text">${lang==='kz'?'Сабақты таңдаңыз':'Выберите урок'}</div>
+    <div class="cp-empty-sub">${lang==='kz'?'Оң жақтағы тізімнен сабақты таңдаңыз':'Выберите урок из списка справа'}</div>
+  </div>`;
+
+  // Clear search
+  const si = $('cp-lesson-search'); if(si) si.value = '';
+
+  // Switch pages
+  $('lessons-page').style.display  = 'none';
+  $('course-player-page').style.display = 'flex';
+  document.body.style.overflow = 'hidden'; // full-page layout, no page scroll
+
+  // Render lesson list + progress
+  cpRenderLessonList();
+  cpUpdateProgress();
+
+  // Auto-start first unwatched lesson
+  const lessons = getCpLessons();
+  const firstVideo = lessons.findIndex(l => l.type === 'video');
+  const firstUnwatched = lessons.findIndex((l, i) => l.type === 'video' && !isWatched(courseIdx, i));
+  const startIdx = firstUnwatched !== -1 ? firstUnwatched : firstVideo;
+  if (startIdx !== -1) {
+    setTimeout(() => { cpPlayLesson(startIdx); }, 60);
+  }
+}
+
+// ── Close and go back ─────────────────────────────────────────────────
+function closeCoursePlayer() {
+  if (cpIsFullscreen) toggleCpFullscreen();
+  cpStopVideo();
+  $('course-player-page').style.display = 'none';
+  $('lessons-page').style.display       = 'block';
+  document.body.style.overflow          = '';
+  cpCourseIdx = null; cpLessonIdx = null;
+  renderCoursesGrid();
+  updateHeroStats();
+}
+
+// ── Get lessons for current course ───────────────────────────────────
+function getCpLessons() {
+  if (cpCourseIdx === null) return [];
+  const c = courses[cpCourseIdx];
+  return (lang === 'kz' ? c.lessonsKZ : c.lessonsRU) || [];
+}
+
+// ── Render sidebar lesson list ────────────────────────────────────────
+function cpRenderLessonList() {
+  const ul = $('cp-lp-list');
+  if (!ul || cpCourseIdx === null) return;
+
+  const lessons = getCpLessons();
+  const color   = courses[cpCourseIdx]?.hexColor || DEFAULT_COLORS[cpCourseIdx % DEFAULT_COLORS.length];
+  const query   = cpSearchQuery.toLowerCase().trim();
+
+  let videoSeq = 0, suggestIdx = -1, hasResults = false;
+
+  const html = lessons.map((lesson, i) => {
+    if (lesson.type === 'empty') return '';
+
+    if (lesson.type === 'header') {
+      if (query) return '';
+      return `<li class="is-section-header"><span class="section-header-text" style="border-left-color:${color}">${escHtml(lesson.name)}</span></li>`;
+    }
+
+    if (lesson.type === 'image') {
+      const nm = lesson.name || (lang==='kz'?'Сурет':'Изображение');
+      if (query && !nm.toLowerCase().includes(query)) return '';
+      hasResults = true;
+      return `<li class="clickable" onclick="openImageViewer('${safeAttr(lesson.url)}','${safeAttr(nm)}')">
+        <span class="lnum" style="border-color:${color};color:${color};font-size:14px">🖼</span>
+        <span class="l-title">${escHtml(nm)}</span>
+        <span class="l-play" style="color:${color}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
+      </li>`;
+    }
+
+    if (lesson.type === 'text') {
+      if (query) return '';
+      return `<li class="is-text-block"><div class="lesson-text-block">${escHtml(lesson.name)}</div></li>`;
+    }
+
+    if (lesson.type === 'link') {
+      const match = !query || (lesson.name||'').toLowerCase().includes(query) || (lesson.url||'').toLowerCase().includes(query);
+      if (!match) return '';
+      hasResults = true;
+      return `<li class="clickable is-link-item" onclick="window.open('${safeAttr(lesson.url)}','_blank')">
+        <div class="lesson-link-icon" style="background:${hexToRgba(color,0.12)};color:${color}">🔗</div>
+        <span class="l-title" style="color:${color};font-weight:600">${escHtml(lesson.name||lesson.url)}</span>
+        <span style="font-size:11px;opacity:.5;color:${color};flex-shrink:0">↗</span>
+      </li>`;
+    }
+
+    if (lesson.type === 'file') {
+      if (query && !(lesson.name||'').toLowerCase().includes(query)) return '';
+      hasResults = true;
+      return `<li class="clickable" onclick="window.open('${safeAttr(lesson.url)}','_blank')">
+        <span class="lnum" style="border-color:${color};color:${color}">📎</span>
+        <span class="l-title">${escHtml(lesson.name || t('fileDownload'))}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </li>`;
+    }
+
+    // Video lesson
+    const vIdx     = videoSeq++;
+    const nm       = lesson.name || (lang==='kz' ? `Сабақ ${vIdx+1}` : `Урок ${vIdx+1}`);
+    const watched  = isWatched(cpCourseIdx, i);
+    const isCur    = (i === cpLessonIdx);
+    const hasLink  = lesson.url && lesson.url.length > 4;
+
+    if (query && !nm.toLowerCase().includes(query)) return '';
+    hasResults = true;
+
+    if (!isCur && !watched && suggestIdx === -1) suggestIdx = i;
+    const isStart = (!isCur && !watched && i === suggestIdx);
+
+    const cursorTag = isCur
+      ? `<span class="cursor-tag here" style="background:${color};color:#fff">▶ ${lang==='kz'?'СІЗ ОСЫНДА':'ВЫ ТУТ'}</span>`
+      : (isStart ? `<span class="cursor-tag start" style="background:${hexToRgba(color,0.18)};color:${color};border:1px dashed ${color}">🎯 ${lang==='kz'?'ОСЫДАН БАСТА':'НАЧНИ ЗДЕСЬ'}</span>` : '');
+
+    return `<li class="clickable${watched?' watched':''}${isCur?' is-current-lesson':''}" onclick="cpPlayLesson(${i})">
+      <span class="lnum" style="${watched
+        ? 'border-color:var(--green);color:var(--green);background:rgba(34,196,138,0.1)'
+        : `border-color:${color};color:${color}`}">${watched ? '✓' : vIdx+1}</span>
+      <span class="l-title">${escHtml(nm)}</span>
+      ${cursorTag}
+      ${watched
+        ? `<span class="l-check">✓</span>`
+        : (hasLink
+          ? `<span class="l-play" style="color:${color}"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>`
+          : '<span style="font-size:11px;color:var(--text3)">—</span>')}
+    </li>`;
+  }).join('');
+
+  if (query && !hasResults) {
+    ul.innerHTML = `<li style="border:none;padding:24px;justify-content:center"><span style="color:var(--text3);font-size:13px">${t('noResults')}</span></li>`;
+  } else {
+    ul.innerHTML = html;
+  }
+
+  // Scroll current lesson into view in sidebar
+  setTimeout(() => {
+    const cur = ul.querySelector('.is-current-lesson');
+    if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+// ── Update top bar & sidebar progress ────────────────────────────────
+function cpUpdateProgress() {
+  if (cpCourseIdx === null) return;
+  const prog = getCourseProgress(cpCourseIdx);
+  const pct  = prog.pct + '%';
+
+  // topbar pill
+  const fill = $('cp-mini-fill');    if(fill) fill.style.width = pct;
+  const pctL = $('cp-pct-label');    if(pctL) pctL.textContent = pct;
+  const frac = $('cp-fraction-label'); if(frac) frac.textContent = `${prog.watched}/${prog.total}`;
+
+  // sidebar bar
+  const sf   = $('cp-sidebar-fill'); if(sf) sf.style.width = pct;
+  const sp   = $('cp-sidebar-pct');  if(sp) sp.textContent = pct;
+
+  // completion banner
+  const banner = $('cp-completion-banner');
+  if (banner) banner.classList.toggle('show', prog.total > 0 && prog.watched === prog.total);
+  setText('cp-completion-title', t('completionTitle'));
+  setText('cp-completion-sub',   t('completionSub'));
+}
+
+// ── Play a lesson in the player ───────────────────────────────────────
+function cpPlayLesson(lessonAbsIdx) {
+  if (cpCourseIdx === null) return;
+  const lessons = getCpLessons();
+  const lesson  = lessons[lessonAbsIdx];
+  if (!lesson || lesson.type !== 'video') return;
+
+  cpLessonIdx = lessonAbsIdx;
+  currentLessonIndex = lessonAbsIdx;
+  markWatched(cpCourseIdx, lessonAbsIdx);
+
+  // Lesson title
+  let vNum = 0;
+  for (let i = 0; i < lessonAbsIdx; i++) if (lessons[i].type === 'video') vNum++;
+  vNum++;
+  const nm = lesson.name || (lang === 'kz' ? `Сабақ ${vNum}` : `Урок ${vNum}`);
+  setText('cp-lesson-title', nm);
+  setText('cp-lesson-sub',   '');
+
+  // prev/next buttons
+  const prevIdx = findAdjacentVideo(lessons, lessonAbsIdx, -1);
+  const nextIdx = findAdjacentVideo(lessons, lessonAbsIdx, +1);
+  const prevBtn = $('cp-prev-btn'); if(prevBtn) prevBtn.disabled = prevIdx === -1;
+  const nextBtn = $('cp-next-btn'); if(nextBtn) nextBtn.disabled = nextIdx === -1;
+
+  // Load video into cp-video-slot
+  const slot = $('cp-video-slot');
+  slot.innerHTML = '';
+  const link = lesson.url || '';
+
+  if (link) {
+    const ytId = extractYouTubeId(link);
+    if (ytId) {
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.id = 'cp-yt-iframe';
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        iframe.setAttribute('allowfullscreen','');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+        installCpYtBlockers(slot);
+        attachYtEndListenerCp(iframe);
+      }, ytId);
+    } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
+      let embedUrl = link;
+      const mC = link.match(/clip(-?\d+)_(\d+)/);
+      const mV = link.match(/video(-?\d+)_(\d+)/);
+      if (mC) embedUrl = `https://vkvideo.ru/clip_ext.php?oid=${mC[1]}&id=${mC[2]}&autoplay=1&no_recs=1`;
+      else if (mV) embedUrl = `https://vk.com/video_ext.php?oid=${mV[1]}&id=${mV[2]}&hd=2&autoplay=1&js_api=1&no_recs=1`;
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = embedUrl;
+        iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock; web-share';
+        iframe.setAttribute('allowfullscreen','');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else if (link.includes('drive.google.com')) {
+      let fileId = null;
+      const m1 = link.match(/\/file\/d\/([^\/\?&]+)/);
+      const m2 = link.match(/[?&]id=([^&]+)/);
+      if (m1) fileId = m1[1]; else if (m2) fileId = m2[1];
+      const src = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : link.replace('/view','/preview');
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen','');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else if (link.includes('cloudflarestream.com') || link.includes('iframe.cloudflarestream.com')) {
+      let src = link;
+      const m = link.match(/cloudflarestream\.com\/([a-f0-9]+)/i);
+      if (m) src = `https://iframe.cloudflarestream.com/${m[1]}?autoplay=true&preload=true`;
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen','');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else if (link.includes('vimeo.com')) {
+      const m = link.match(/vimeo\.com\/(\d+)/);
+      const src = m ? `https://player.vimeo.com/video/${m[1]}?autoplay=1&playsinline=1` : link;
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+        iframe.setAttribute('allowfullscreen','true');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(link)) {
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const video = document.createElement('video');
+        video.src = link; video.controls = true; video.autoplay = true;
+        video.setAttribute('playsinline',''); video.preload = 'metadata';
+        video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;border-radius:inherit';
+        slot.appendChild(video);
+      });
+    } else if (link.includes('bunny.net') || link.includes('b-cdn.net') || link.includes('iframe.mediadelivery.net')) {
+      let src = link;
+      if (!link.includes('iframe.mediadelivery.net') && !link.includes('embed')) {
+        const m = link.match(/([a-f0-9\-]{36})/i);
+        if (m) src = `https://iframe.mediadelivery.net/embed/${m[1]}?autoplay=true`;
+      }
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen','');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    } else {
+      cpShowPlayOverlay(() => {
+        slot.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = link;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+        iframe.setAttribute('allowfullscreen','');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+        slot.appendChild(iframe);
+      });
+    }
+  } else {
+    slot.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;flex-direction:column;gap:10px;background:#000;border-radius:inherit"><span style="font-size:36px">🎬</span><span>${lang==='kz'?'Сілтеме қосылмаған':'Ссылка не добавлена'}</span></div>`;
+  }
+
+  cpRenderLessonList();
+  cpUpdateProgress();
+}
+
+// ── Show play overlay (thumbnail + button) ───────────────────────────
+function cpShowPlayOverlay(onPlay, ytId) {
+  const slot = $('cp-video-slot');
+
+  // For iOS + YouTube, skip overlay and just open YouTube
+  if (ytId && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    slot.innerHTML = `
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#000;overflow:hidden">
+        <div style="position:relative;width:100%;flex:1;overflow:hidden;cursor:pointer" onclick="window.open('https://youtu.be/${ytId}','_blank')">
+          <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25)">
+            <div style="width:72px;height:72px;background:rgba(255,0,0,0.92);border-radius:50%;display:flex;align-items:center;justify-content:center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+            </div>
+          </div>
+        </div>
+        <a href="https://youtu.be/${ytId}" target="_blank" rel="noopener"
+           style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:#ff0000;color:#fff;font-size:14px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+          Смотреть на YouTube
+        </a>
+      </div>`;
+    return;
+  }
+
+  const thumbHtml = ytId
+    ? `<img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit">`
+    : '';
+
+  const color = cpCourseIdx !== null ? (courses[cpCourseIdx]?.hexColor || '#f5c842') : '#f5c842';
+
+  slot.innerHTML = `
+    <div id="cp-play-overlay" style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;cursor:pointer;background:#000"
+         onclick="document.getElementById('cp-play-overlay')?.remove(); (${onPlay.toString()})()">
+      ${thumbHtml}
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,${ytId?'0.3':'0.7'});display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+        <div style="width:76px;height:76px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 40px rgba(0,0,0,0.5);transition:transform .2s ease"
+             onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="#000" style="margin-left:4px"><polygon points="5 3 19 12 5 21"/></svg>
+        </div>
+        <span style="color:rgba(255,255,255,0.9);font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;letter-spacing:0.5px">${lang==='kz'?'Видео сабағын қосу':'Начать просмотр'}</span>
+      </div>
+    </div>`;
+}
+
+// ── Stop current video ────────────────────────────────────────────────
+function cpStopVideo() {
+  const slot = $('cp-video-slot');
+  if (slot) slot.innerHTML = '';
+}
+
+// ── Prev / Next lesson ────────────────────────────────────────────────
+function cpPrevLesson() {
+  if (cpCourseIdx === null || cpLessonIdx === null) return;
+  const idx = findAdjacentVideo(getCpLessons(), cpLessonIdx, -1);
+  if (idx !== -1) cpPlayLesson(idx);
+}
+function cpNextLesson() {
+  if (cpCourseIdx === null || cpLessonIdx === null) return;
+  const idx = findAdjacentVideo(getCpLessons(), cpLessonIdx, +1);
+  if (idx !== -1) cpPlayLesson(idx);
+}
+
+// ── Search ────────────────────────────────────────────────────────────
+function cpFilterLessons(q) {
+  clearTimeout(cpFilterTimer);
+  cpFilterTimer = setTimeout(() => { cpSearchQuery = q; cpRenderLessonList(); }, 220);
+}
+
+// ── Custom fullscreen for cp-video-container ──────────────────────────
+function toggleCpFullscreen() {
+  const container = $('cp-video-container');
+  const btn = $('cp-fs-btn');
+  if (!container) return;
+  cpIsFullscreen = !cpIsFullscreen;
+  if (cpIsFullscreen) {
+    container.classList.add('cp-fullscreen');
+    if (btn) btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>`;
+  } else {
+    container.classList.remove('cp-fullscreen');
+    if (btn) btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+  }
+}
+
+// ── YouTube blocker overlays for cp player ────────────────────────────
+function installCpYtBlockers(slot) {
+  // Reuse existing installYtBlockers logic mapped to cp-video-container
+  const container = $('cp-video-container');
+  if (!container) return;
+  // Remove old blockers
+  container.querySelectorAll('.yt-blocker').forEach(b => b.remove());
+
+  const iframe = container.querySelector('iframe');
+  if (!iframe) return;
+  const cr  = iframe.getBoundingClientRect();
+  const bcr = container.getBoundingClientRect();
+  const ox = cr.left - bcr.left, oy = cr.top - bcr.top;
+  const vw = cr.width, vh = cr.height;
+
+  function mk(x,y,w,h,cursor,z) {
+    const d = document.createElement('div');
+    d.className = 'yt-blocker';
+    d.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:${z||9500};cursor:${cursor||'default'}`;
+    return d;
+  }
+  const topH  = Math.round(vh * 0.14);
+  const botH  = Math.round(vh * 0.32);
+  const sideW = Math.round(vw * 0.12);
+  const sideH = vh - topH - botH;
+  container.appendChild(mk(ox, oy, vw, topH));
+  container.appendChild(mk(ox, oy+topH, sideW, sideH));
+  container.appendChild(mk(ox+vw-sideW, oy+topH, sideW, sideH));
+  container.appendChild(mk(ox, oy+vh-botH, vw, botH));
+  // fullscreen zone → our fullscreen
+  const fsW = Math.round(vw*0.30);
+  const fsZ = mk(ox+vw-fsW, oy+vh-botH, fsW, botH, 'pointer', 9700);
+  fsZ.addEventListener('click',    e => { e.stopPropagation(); toggleCpFullscreen(); });
+  fsZ.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); toggleCpFullscreen(); });
+  container.appendChild(fsZ);
+}
+
+// ── YouTube end detection for cp player ──────────────────────────────
+function attachYtEndListenerCp(iframe) {
+  const listen = () => {
+    try { iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: iframe.id, channel: 'widget' }), '*'); } catch(_) {}
+  };
+  iframe.addEventListener('load', () => { setTimeout(listen, 400); setTimeout(listen, 1500); });
+  if (window._cpYtEndHandler) window.removeEventListener('message', window._cpYtEndHandler);
+  window._cpYtEndHandler = (e) => {
+    if (!e.data || typeof e.data !== 'string') return;
+    try {
+      const d = JSON.parse(e.data);
+      if ((d.event === 'onStateChange' && d.info === 0) ||
+          (d.event === 'infoDelivery' && d.info && d.info.playerState === 0)) {
+        cpShowNextSuggestion();
+      }
+    } catch(_) {}
+  };
+  window.addEventListener('message', window._cpYtEndHandler);
+}
+
+// ── Show next lesson suggestion overlay at end of video ───────────────
+function cpShowNextSuggestion() {
+  if (cpCourseIdx === null || cpLessonIdx === null) return;
+  const lessons = getCpLessons();
+  const nextIdx = findAdjacentVideo(lessons, cpLessonIdx, +1);
+  const slot = $('cp-video-slot');
+  if (!slot || document.getElementById('cp-next-suggest')) return;
+
+  const color = courses[cpCourseIdx]?.hexColor || '#f5c842';
+
+  if (nextIdx === -1) {
+    const ov = document.createElement('div');
+    ov.id = 'cp-next-suggest';
+    ov.style.cssText = 'position:absolute;inset:0;z-index:80;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;text-align:center;padding:24px;font-family:sans-serif';
+    ov.innerHTML = `<div style="font-size:48px">🎉</div>
+      <div style="font-size:20px;font-weight:800">${lang==='kz'?'Курс аяқталды!':'Курс завершён!'}</div>
+      <button style="margin-top:8px;background:${color};border:none;border-radius:12px;padding:12px 22px;font-weight:800;cursor:pointer;color:#000" onclick="document.getElementById('cp-next-suggest')?.remove()">${lang==='kz'?'Жабу':'Закрыть'}</button>`;
+    slot.appendChild(ov);
+    cpUpdateProgress();
+    cpRenderLessonList();
+    return;
+  }
+
+  const nextNm = lessons[nextIdx].name || (lang==='kz'?'Келесі сабақ':'Следующий урок');
+  const ov = document.createElement('div');
+  ov.id = 'cp-next-suggest';
+  ov.style.cssText = 'position:absolute;inset:0;z-index:80;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;text-align:center;padding:24px;font-family:sans-serif;backdrop-filter:blur(4px)';
+  ov.innerHTML = `
+    <div style="font-size:13px;letter-spacing:2px;opacity:0.7;text-transform:uppercase">${lang==='kz'?'Келесі сабақ':'Следующий урок'}</div>
+    <div style="font-size:20px;font-weight:800;max-width:560px">${escHtml(nextNm)}</div>
+    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center">
+      <button id="cp-ns-go" style="background:${color};border:none;border-radius:12px;padding:13px 24px;font-weight:800;font-size:14px;cursor:pointer;color:#000">▶ ${lang==='kz'?'Бастау':'Смотреть'}</button>
+      <button id="cp-ns-close" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:12px;padding:13px 22px;font-weight:600;font-size:14px;cursor:pointer">${lang==='kz'?'Жабу':'Закрыть'}</button>
+    </div>`;
+  slot.appendChild(ov);
+  document.getElementById('cp-ns-go').onclick    = () => { ov.remove(); cpPlayLesson(nextIdx); };
+  document.getElementById('cp-ns-close').onclick = () => ov.remove();
+}
+
+// ── Keyboard navigation in player page ───────────────────────────────
+document.addEventListener('keydown', e => {
+  const playerVisible = $('course-player-page') && $('course-player-page').style.display !== 'none';
+  if (!playerVisible) return;
+  if (e.key === 'Escape') {
+    if (cpIsFullscreen) { toggleCpFullscreen(); return; }
+    closeCoursePlayer();
+  }
+  if (e.key === 'ArrowLeft')  cpPrevLesson();
+  if (e.key === 'ArrowRight') cpNextLesson();
+}, true);
