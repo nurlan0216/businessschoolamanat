@@ -145,7 +145,7 @@ function toggleTheme() {
   currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
   localStorage.setItem('theme', currentTheme);
   initTheme();
-  setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 400);
+  setTimeout(function() { document.documentElement.classList.remove('theme-transitioning'); }, 400);
 }
 initTheme();
 
@@ -722,9 +722,8 @@ function openLesson(idx) {
   currentCourseIdx = idx;
   $('video-section').style.display = 'none';
   $('video-slot').innerHTML = '';
-  $('video-container').style.display = 'none';
-  const _lpTitle = $('lp-title');
-  if (_lpTitle) _lpTitle.style.display = '';
+  var _vc = $('video-container'); if (_vc) _vc.style.display = 'none';
+  var _lp = $('lp-title'); if (_lp) _lp.style.display = '';
   $('lesson-modal').classList.remove('video-active');
 
   const course = courses[idx];
@@ -859,9 +858,8 @@ function closeLesson() {
   if (isCustomFullscreen) toggleCustomFullscreen();
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
-  $('video-container').style.display = 'none';
-  const _lpTitle = $('lp-title');
-  if (_lpTitle) _lpTitle.style.display = '';
+  var _vc3 = $('video-container'); if (_vc3) _vc3.style.display = 'none';
+  var _lp3 = $('lp-title'); if (_lp3) _lp3.style.display = '';
   // Уничтожаем YT.Player если был активен
   if (_ytPlayer && typeof _ytPlayer.destroy === 'function') {
     try { _ytPlayer.destroy(); } catch(e) {}
@@ -976,22 +974,20 @@ function buildCustomYtPlayer(slot, ytId) {
   // Play/Pause кнопка
   const ppBtn = document.createElement('button');
   ppBtn.id = 'cyt-pp';
-  ppBtn.style.cssText = btnStyle + 'padding:6px 10px;';
+  ppBtn.style.cssText = btnStyle;
   ppBtn.innerHTML = `<svg id="cyt-pp-icon" width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>`;
 
   // Кнопка -10 сек
   const rew10Btn = document.createElement('button');
   rew10Btn.id = 'cyt-rew10';
-  rew10Btn.title = '-10 сек';
-  rew10Btn.style.cssText = btnStyle + 'padding:6px 10px;font-size:11px;font-family:sans-serif;font-weight:700;gap:2px;';
-  rew10Btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15.5" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
+  rew10Btn.style.cssText = btnStyle + 'min-width:40px;';
+  rew10Btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15" text-anchor="middle" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
 
   // Кнопка +10 сек
   const fwd10Btn = document.createElement('button');
   fwd10Btn.id = 'cyt-fwd10';
-  fwd10Btn.title = '+10 сек';
-  fwd10Btn.style.cssText = btnStyle + 'padding:6px 10px;font-size:11px;font-family:sans-serif;font-weight:700;gap:2px;';
-  fwd10Btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15.5" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
+  fwd10Btn.style.cssText = btnStyle + 'min-width:40px;';
+  fwd10Btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12.01 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15" text-anchor="middle" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
 
   // Время
   const timeEl = document.createElement('span');
@@ -1087,38 +1083,18 @@ function buildCustomYtPlayer(slot, ytId) {
     else _ytPlayer.playVideo();
   });
 
-  // Кнопки ±10 сек
-  rew10Btn.addEventListener('click', function(e) {
-    e.stopPropagation();
+  // ±10 секунд
+  function seek(delta) {
     if (!_ytPlayer || typeof _ytPlayer.getCurrentTime !== 'function') return;
-    const cur = _ytPlayer.getCurrentTime() || 0;
-    _ytPlayer.seekTo(Math.max(0, cur - 10), true);
+    var cur = _ytPlayer.getCurrentTime() || 0;
+    var dur = _ytPlayer.getDuration() || 0;
+    _ytPlayer.seekTo(Math.max(0, Math.min(dur, cur + delta)), true);
     showBar();
-  });
-  rew10Btn.addEventListener('touchend', function(e) {
-    e.preventDefault(); e.stopPropagation();
-    if (!_ytPlayer || typeof _ytPlayer.getCurrentTime !== 'function') return;
-    const cur = _ytPlayer.getCurrentTime() || 0;
-    _ytPlayer.seekTo(Math.max(0, cur - 10), true);
-    showBar();
-  });
-
-  fwd10Btn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    if (!_ytPlayer || typeof _ytPlayer.getDuration !== 'function') return;
-    const cur = _ytPlayer.getCurrentTime() || 0;
-    const dur = _ytPlayer.getDuration() || 0;
-    _ytPlayer.seekTo(Math.min(dur, cur + 10), true);
-    showBar();
-  });
-  fwd10Btn.addEventListener('touchend', function(e) {
-    e.preventDefault(); e.stopPropagation();
-    if (!_ytPlayer || typeof _ytPlayer.getDuration !== 'function') return;
-    const cur = _ytPlayer.getCurrentTime() || 0;
-    const dur = _ytPlayer.getDuration() || 0;
-    _ytPlayer.seekTo(Math.min(dur, cur + 10), true);
-    showBar();
-  });
+  }
+  rew10Btn.addEventListener('click', function(e) { e.stopPropagation(); seek(-10); });
+  rew10Btn.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); seek(-10); });
+  fwd10Btn.addEventListener('click', function(e) { e.stopPropagation(); seek(10); });
+  fwd10Btn.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); seek(10); });
 
   // Клик по прогрессу — перемотка
   progWrap.addEventListener('click', function(e) {
@@ -1474,9 +1450,8 @@ function playLesson(courseIdx, lessonAbsIdx) {
 
   setupTapZones();
   $('video-section').style.display = 'block';
-  $('video-container').style.display = '';
-  const _lpTitle = $('lp-title');
-  if (_lpTitle) _lpTitle.style.display = 'none';
+  var _vc2 = $('video-container'); if (_vc2) _vc2.style.display = '';
+  var _lp2 = $('lp-title'); if (_lp2) _lp2.style.display = 'none';
   if (window.innerWidth <= 640) $('lesson-modal').classList.add('video-active');
   updateModalProgress(courseIdx);
   renderLessonList(courseIdx);
