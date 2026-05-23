@@ -6,8 +6,11 @@
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
-const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbywfO2d6H0vrXWZUIm3-Ykn5bwIfDC93tPhfNY-eoF4MfQY0Yu4CJiewTQrsVp_vgQk/exec';
-const ADMIN_PASSWORD   = 'N20020216$$';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbw8XgNyO0P6HX5ByMFUAGnzAuMJ9hAkNTCCDoIWEP1Tzvl4ZjYoHIHgT9_1ibBjBrAK/exec';
+
+// ⚠️ Пароль не хранится в открытом виде — только SHA-256 хеш
+// Для смены пароля: запусти в консоли: crypto.subtle.digest('SHA-256', new TextEncoder().encode('НовыйПароль')).then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+const ADMIN_PW_HASH    = '7404297e91a4ab5b540fceefb2c0030cc24965b1ac4591c774435421b5d8b9ad'; // SHA-256 от текущего пароля
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
 // ══════════════════════════════ STATE ══════════════════════════════
@@ -47,6 +50,7 @@ let catalogFulfillmentUrl = '';
 let catalogGoldUrl        = '';
 let waUrl                 = '';
 let tgUrl                 = '';
+let tgChannelUrl          = '';  // A7 — ссылка на ТГ-канал с отзывами
 
 // Переменная для хранения фонового интервала проверки блокировки
 let securityCheckInterval = null;
@@ -269,37 +273,22 @@ function startSecurityMonitor() {
     if (!currentUser || !currentIin) return;
 
     try {
-      // Запрашиваем Лист1 (база пользователей с флагами доступа)
-      const url = `https://docs.google.com/spreadsheets/d/${gsSheetId}/gviz/tq?tqx=out:csv`;
-      const res = await fetch(url);
-      if (!res.ok) return; // Если сбой сети — не прерываем сессию до следующей попытки
-      
-      const csv = await res.text();
-      const rows = parseCSV(csv);
-      
-      let found = false;
-      let isAllowed = false;
-      let isPaid = false;
+      // Проверяем через Apps Script — база не открыта публично
+      const res = await fetch(LOG_SCRIPT_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ _type: 'auth', iin: currentIin, phone: sessionStorage.getItem('bs_phone') || '' })
+      });
+      if (!res.ok) return; // сбой сети — не прерываем сессию
 
-      for (const row of rows) {
-        if (strip(row[0]) === currentIin) {
-          found = true;
-          const sA  = (strip(row[10]) || '').toUpperCase();
-          const sP  = (strip(row[11]) || '').toUpperCase();
-          isAllowed = sA.includes('✅') && (sA.includes('РАЗРЕШЕНО') || sA.includes('РҰҚСАТ'));
-          isPaid    = sP.includes('✅') && (sP.includes('ОПЛАЧЕНО')  || sP.includes('ТӨЛЕНДІ'));
-          break;
-        }
-      }
-
-      // Если ИИН удален, закрыт доступ или снята оплата — мгновенно блокируем сессию
-      if (!found || !isAllowed || !isPaid) {
+      const result = await res.json();
+      if (!result.found || !result.isAllowed || !result.isPaid) {
         triggerInstantBlock();
       }
     } catch (e) {
       console.warn('Security monitor tick failed:', e);
     }
-  }, 10000); // Интервал проверки — 10 секунд
+  }, 120000); // 2 минуты вместо 10 секунд
 }
 
 function triggerInstantBlock() {
@@ -358,6 +347,7 @@ async function loadSheet2() {
     catalogGoldUrl        = strip((rows[3] || [])[0]) || '';
     waUrl                 = strip((rows[4] || [])[0]) || '';
     tgUrl                 = strip((rows[5] || [])[0]) || '';
+    tgChannelUrl          = strip((rows[6] || [])[0]) || '';  // A7 — ТГ-канал отзывов
 
     courses = [];
     let maxCol = 0;
@@ -459,6 +449,12 @@ function applyLinks() {
   setLink('tg-btn',              tgUrl);
   setLink('cat-modal-ff',        catalogFulfillmentUrl);
   setLink('cat-modal-gold',      catalogGoldUrl);
+  // Кнопка ТГ-канала с отзывами
+  const tgCh = $('tg-channel-btn');
+  if (tgCh) {
+    tgCh.href = tgChannelUrl || '#';
+    tgCh.style.display = tgChannelUrl ? 'inline-flex' : 'none';
+  }
   const tn = $('tg-note');
   if (tn) tn.innerHTML = t('tgNote').replace('__TG__', tgUrl || '#');
 }
@@ -728,6 +724,81 @@ function renderLessonList(idx) {
   }
 }
 
+// ══════════════════════════════ DEMO MODE ════════════════════════
+// Демо = первый видео-урок каждого модуля (первый урок курса)
+function isDemoLesson(courseIdx, lessonAbsIdx) {
+  if (courseIdx === null) return false;
+  const vl = getVideoLessons(courseIdx);
+  return vl.length > 0 && vl[0].absIdx === lessonAbsIdx;
+}
+
+let demoTimerInterval = null;
+
+function startDemoTimer(seconds) {
+  if (demoTimerInterval) clearInterval(demoTimerInterval);
+  let left = seconds;
+
+  // Создаём оверлей таймера
+  const slot = $('video-slot');
+  const timerEl = document.createElement('div');
+  timerEl.id = 'demo-timer-bar';
+  timerEl.style.cssText = `
+    position:absolute;top:10px;right:10px;z-index:20;
+    background:rgba(0,0,0,0.75);color:#f5c842;
+    font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;
+    padding:6px 12px;border-radius:8px;pointer-events:none;
+    border:1px solid rgba(245,200,66,0.4);
+  `;
+  timerEl.textContent = `🎬 Демо: ${left} сек`;
+  slot.appendChild(timerEl);
+
+  demoTimerInterval = setInterval(() => {
+    left--;
+    if (timerEl.isConnected) timerEl.textContent = `🎬 Демо: ${left} сек`;
+    if (left <= 0) {
+      clearInterval(demoTimerInterval);
+      demoTimerInterval = null;
+      showDemoEndOverlay();
+    }
+  }, 1000);
+}
+
+function showDemoEndOverlay() {
+  // Останавливаем видео
+  if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+    try { ytPlayer.pauseVideo(); } catch(_) {}
+  }
+  const slot = $('video-slot');
+  // Убираем таймер
+  const tb = document.getElementById('demo-timer-bar');
+  if (tb) tb.remove();
+  // Показываем оверлей "Войдите для доступа"
+  const overlay = document.createElement('div');
+  overlay.id = 'demo-end-overlay';
+  overlay.style.cssText = `
+    position:absolute;inset:0;z-index:25;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+    background:rgba(6,6,8,0.92);text-align:center;padding:24px;
+    font-family:'DM Sans',sans-serif;
+  `;
+  overlay.innerHTML = `
+    <div style="font-size:44px">🔒</div>
+    <div style="color:#fff;font-size:18px;font-weight:700;line-height:1.4">
+      Войдите для просмотра<br>полного урока
+    </div>
+    <div style="color:#8080a8;font-size:13px;max-width:260px;line-height:1.6">
+      Вы просмотрели демо-версию. Войдите в платформу, чтобы получить полный доступ ко всем урокам.
+    </div>
+    <button onclick="closeLesson()" style="
+      background:linear-gradient(135deg,#f5c842,#f0a500);
+      border:none;border-radius:12px;padding:13px 28px;
+      font-size:14px;font-weight:700;color:#000;cursor:pointer;
+      font-family:'DM Sans',sans-serif;margin-top:4px;
+    ">Войти в платформу</button>
+  `;
+  slot.appendChild(overlay);
+}
+
 // ══════════════════════════════ CLOSE LESSON ══════════════════════
 function closeLesson() {
   $('lesson-modal').classList.remove('show', 'video-active');
@@ -735,6 +806,9 @@ function closeLesson() {
   $('video-slot').innerHTML = '';
   currentLessonIndex = 0; lessonSearchQuery = '';
   $('completion-banner').classList.remove('show');
+
+  // Clear demo timer
+  if (demoTimerInterval) { clearInterval(demoTimerInterval); demoTimerInterval = null; }
 
   // Reset player refs
   if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
@@ -1001,6 +1075,10 @@ function playLesson(courseIdx, lessonAbsIdx) {
                 e.target.playVideo();
                 showCustomControls();
                 addYtCleanOverlay(slot);
+                // ── ДЕМО-РЕЖИМ: 30 сек для неавторизованных ──
+                if (!currentUser && isDemoLesson(currentCourseIdx, currentLessonIndex)) {
+                  startDemoTimer(30);
+                }
               }
             }
           });
@@ -1470,31 +1548,27 @@ async function doLogin() {
   await animProg(0, 15, 300, ''); markStep(0);
   await animProg(15, 40, 400, steps[1]); markStep(1);
 
-  let found = false, foundName = '', isPaid = false, isAllowed = false;
+  let foundName = '', isPaid = false, isAllowed = false;
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${gsSheetId}/gviz/tq?tqx=out:csv`;
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), 15000);
     let res;
     try {
-      res = await fetch(url, { signal: controller.signal });
+      res = await fetch(LOG_SCRIPT_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ _type: 'auth', iin, phone }),
+        signal:  controller.signal
+      });
     } finally {
       clearTimeout(timeoutId);
     }
     if (!res.ok) throw new Error('http_' + res.status);
-    const csv  = await res.text();
-    const rows = parseCSV(csv);
-    for (const row of rows) {
-      if (strip(row[0]) === iin) {
-        found     = true;
-        foundName = strip(row[1]) || name;
-        const sA  = (strip(row[10]) || '').toUpperCase();
-        const sP  = (strip(row[11]) || '').toUpperCase();
-        isAllowed = sA.includes('✅') && (sA.includes('РАЗРЕШЕНО') || sA.includes('РҰҚСАТ'));
-        isPaid    = sP.includes('✅') && (sP.includes('ОПЛАЧЕНО')  || sP.includes('ТӨЛЕНДІ'));
-        break;
-      }
-    }
+    const result = await res.json();
+    if (!result.found) { finishLogin(btn); showMsg('error', t('errNotFound')); return; }
+    foundName  = result.name || name;
+    isPaid     = !!result.isPaid;
+    isAllowed  = !!result.isAllowed;
   } catch (e) {
     await animProg(40, 40, 50, '');
     btn.disabled = false;
@@ -1511,8 +1585,7 @@ async function doLogin() {
   await animProg(60, 75, 300, steps[3]); markStep(3);
   await sleep(180);
 
-  if (!found)  { finishLogin(btn); showMsg('error', t('errNotFound')); return; }
-  if (!isPaid) { finishLogin(btn); showMsg('error', t('errNotPaid'));  return; }
+  if (!isPaid)    { finishLogin(btn); showMsg('error', t('errNotPaid'));  return; }
 
   await animProg(75, 90, 300, steps[4]); markStep(4);
   await sleep(180);
@@ -1526,8 +1599,9 @@ async function doLogin() {
   logLogin(iin, currentUser);
 
   try {
-    sessionStorage.setItem('bs_user', currentUser);
-    sessionStorage.setItem('bs_iin',  iin);
+    sessionStorage.setItem('bs_user',  currentUser);
+    sessionStorage.setItem('bs_iin',   iin);
+    sessionStorage.setItem('bs_phone', phone);
   } catch (_) {}
 
   $('login-success').textContent   = t('ok') + ' ' + currentUser + '!';
@@ -1622,8 +1696,11 @@ function openAdminPw() {
   $('admin-pw-modal').classList.add('show');
   setTimeout(() => $('admin-pw-input').focus(), 200);
 }
-function checkAdminPw() {
-  if ($('admin-pw-input').value === ADMIN_PASSWORD) {
+async function checkAdminPw() {
+  const val = $('admin-pw-input').value;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(val));
+  const hash = [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2,'0')).join('');
+  if (hash === ADMIN_PW_HASH) {
     closeModal('admin-pw-modal');
     openAdmin();
   } else {
