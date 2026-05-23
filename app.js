@@ -6,7 +6,7 @@
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
-const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbw8XgNyO0P6HX5ByMFUAGnzAuMJ9hAkNTCCDoIWEP1Tzvl4ZjYoHIHgT9_1ibBjBrAK/exec';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbyL8b-8Rh92_mKvA16Gbzymla-H8Uav-bjv8RHoasoc-rD6Vu59o9kAEsNA0Dpv68K_/exec';
 
 // ⚠️ Пароль не хранится в открытом виде — только SHA-256 хеш
 // Для смены пароля: запусти в консоли: crypto.subtle.digest('SHA-256', new TextEncoder().encode('НовыйПароль')).then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
@@ -276,7 +276,7 @@ function startSecurityMonitor() {
       // Проверяем через Apps Script — база не открыта публично
       const res = await fetch(LOG_SCRIPT_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body:    JSON.stringify({ _type: 'auth', iin: currentIin, phone: sessionStorage.getItem('bs_phone') || '' })
       });
       if (!res.ok) return; // сбой сети — не прерываем сессию
@@ -1554,9 +1554,10 @@ async function doLogin() {
     const timeoutId  = setTimeout(() => controller.abort(), 15000);
     let res;
     try {
+      // Apps Script требует text/plain для CORS с внешних доменов
       res = await fetch(LOG_SCRIPT_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body:    JSON.stringify({ _type: 'auth', iin, phone }),
         signal:  controller.signal
       });
