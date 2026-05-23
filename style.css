@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    BUSINESS SCHOOL AMANAT — PREMIUM DESIGN SYSTEM v3.0
    ============================================================ */
 
@@ -1411,4 +1411,186 @@ body.cursor-active * { cursor: none !important; }
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════════════════════════════════════════════════════
+   BIZON-STYLE VIDEO CONTROLS
+   ══════════════════════════════════════════════════════ */
+
+/* Remove default bottom margin when controls bar is shown */
+#video-section:has(#custom-vc-bar:not([style*="none"])) .video-container {
+  margin-bottom: 0;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+}
+
+/* ── Custom controls bar ── */
+.custom-vc-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(6,6,10,0.92);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-top: none;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  padding: 8px 12px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Control buttons ── */
+.vc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.85);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: all .18s var(--ease);
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.vc-btn:hover {
+  background: rgba(245,200,66,0.14);
+  border-color: rgba(245,200,66,0.35);
+  color: var(--gold);
+  transform: translateY(-1px);
+}
+.vc-btn:active { transform: translateY(0) scale(0.96); }
+
+.vc-rew svg, .vc-fwd svg { flex-shrink: 0; }
+
+.vc-spacer { flex: 1; }
+
+.vc-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 4px;
+}
+
+/* Fullscreen (expand) button */
+.vc-fs {
+  padding: 7px 10px;
+  min-width: 38px;
+  justify-content: center;
+}
+.vc-fs:hover {
+  background: rgba(245,200,66,0.14);
+  border-color: rgba(245,200,66,0.35);
+  color: var(--gold);
+}
+
+/* ── Seek flash indicator ── */
+.seek-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.7);
+  background: rgba(0,0,0,0.72);
+  color: #fff;
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  border-radius: 14px;
+  padding: 14px 22px;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+  transition: opacity .18s, transform .18s;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  letter-spacing: -0.5px;
+}
+.seek-flash.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* ── Theater-mode exit button (top-right of video) ── */
+.theater-esc {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 9010;
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.9);
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: all .2s var(--ease);
+  backdrop-filter: blur(6px);
+  display: none;
+}
+.theater-esc:hover {
+  background: rgba(245,200,66,0.18);
+  border-color: rgba(245,200,66,0.4);
+  color: var(--gold);
+}
+
+/* ══════════════════════════════════════════════════════
+   THEATER / FULLSCREEN MODE
+   ══════════════════════════════════════════════════════ */
+
+body.video-theater {
+  overflow: hidden;
+}
+
+/* The video container expands to cover the entire screen */
+.video-container.theater-mode {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  aspect-ratio: auto !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+  z-index: 9000 !important;
+  background: #000 !important;
+}
+
+/* Controls bar fixed at bottom during theater mode */
+body.video-theater .custom-vc-bar {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 9001 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  border-top: 1px solid rgba(255,255,255,0.08) !important;
+  margin: 0 !important;
+  padding: 12px 20px !important;
+  justify-content: center !important;
+  gap: 16px !important;
+}
+
+body.video-theater .vc-spacer { display: none; }
+body.video-theater .vc-divider { display: block; }
+
+/* Theater mode — show esc button */
+body.video-theater #theater-esc {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Prevent vid-nav arrows from showing over controls bar in theater mode */
+body.video-theater .vid-nav { z-index: 9002; }
+
+/* ── Mobile adjustments ── */
+@media (max-width: 640px) {
+  .custom-vc-bar { padding: 7px 10px; gap: 4px; }
+  .vc-btn { font-size: 12px; padding: 7px 10px; }
+  body.video-theater .custom-vc-bar { gap: 10px; }
 }
