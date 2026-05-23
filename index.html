@@ -356,6 +356,87 @@
   </button>
 </nav>
 
+<!-- ═══════════════════════════════════════════ COURSE PLAYER PAGE ═══ -->
+<div class="page" id="course-player-page" style="display:none">
+  <!-- Top bar -->
+  <div class="cp-topbar">
+    <button class="cp-back-btn" onclick="closeCoursePlayer()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      <span id="cp-back-label">Назад к курсам</span>
+    </button>
+    <div class="cp-course-title" id="cp-course-title"></div>
+    <div class="cp-progress-pill">
+      <span id="cp-pct-label">0%</span>
+      <div class="cp-mini-track"><div class="cp-mini-fill" id="cp-mini-fill"></div></div>
+      <span id="cp-fraction-label">0/0</span>
+    </div>
+  </div>
+
+  <!-- Main layout: video left + sidebar right -->
+  <div class="cp-layout">
+    <!-- LEFT: video + lesson info -->
+    <div class="cp-main">
+      <div class="cp-video-wrap">
+        <div class="cp-video-container" id="cp-video-container">
+          <div id="cp-video-slot"></div>
+          <!-- tap zones for mobile -->
+          <div id="cp-tap-left"   class="tap-zone"></div>
+          <div id="cp-tap-right"  class="tap-zone"></div>
+          <div id="cp-tap-center" class="tap-zone"></div>
+          <!-- fullscreen btn -->
+          <button class="nav-pill fs-btn" id="cp-fs-btn" onclick="toggleCpFullscreen()" title="Полный экран">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Lesson title + nav -->
+      <div class="cp-lesson-meta">
+        <div class="cp-lesson-nav">
+          <button class="nav-pill" id="cp-prev-btn" onclick="cpPrevLesson()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            <span id="cp-prev-label">Пред.</span>
+          </button>
+          <button class="nav-pill" id="cp-next-btn" onclick="cpNextLesson()">
+            <span id="cp-next-label">След.</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <h2 class="cp-lesson-title" id="cp-lesson-title">Выберите урок</h2>
+        <div class="cp-lesson-sub" id="cp-lesson-sub"></div>
+      </div>
+
+      <!-- Completion banner -->
+      <div class="completion-banner" id="cp-completion-banner" style="margin:0 0 16px">
+        <div class="completion-confetti" aria-hidden="true">🎉</div>
+        <div>
+          <h4 id="cp-completion-title">Курс завершён!</h4>
+          <p id="cp-completion-sub">Вы просмотрели все уроки. Отличная работа!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: sidebar lesson list -->
+    <aside class="cp-sidebar">
+      <div class="cp-sidebar-header">
+        <span class="cp-sidebar-label" id="cp-sidebar-label">Содержание курса</span>
+        <div class="cp-progress-row">
+          <div class="mp-track" style="flex:1"><div class="mp-fill" id="cp-sidebar-fill"></div></div>
+          <span class="mp-pct" id="cp-sidebar-pct">0%</span>
+        </div>
+        <div class="lesson-search-wrap" style="margin-bottom:0;margin-top:12px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="cp-lesson-search" placeholder="Поиск по урокам..." oninput="cpFilterLessons(this.value)" class="lesson-search">
+        </div>
+      </div>
+      <ul class="lesson-list cp-lesson-list" id="cp-lp-list"></ul>
+    </aside>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════ LESSON MODAL ══════════ -->
 <div class="overlay" id="lesson-modal" role="dialog" aria-modal="true" aria-labelledby="lp-title">
   <div class="modal lesson-modal-inner">
@@ -390,12 +471,15 @@
         <button class="vid-nav right" id="vid-next-btn" onclick="nextLesson()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
-        <!-- Кнопка fullscreen внутри контейнера, чтобы оставаться видимой в custom-fullscreen -->
-        <button class="nav-pill fs-btn" id="fs-btn" onclick="toggleCustomFullscreen()" title="Полный экран" style="position:absolute;top:10px;right:10px;z-index:60;opacity:1;">
+      </div>
+      <!-- Кнопка нативного fullscreen под видео -->
+      <div class="video-bottom-bar">
+        <button class="nav-pill video-fs-btn" id="video-fs-btn" onclick="enterVideoFullscreen()" title="Полный экран">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
             <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
           </svg>
+          <span id="video-fs-label">Полный экран</span>
         </button>
       </div>
     </div>
