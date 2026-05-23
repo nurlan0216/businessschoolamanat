@@ -740,6 +740,9 @@ function closeLesson() {
   if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
   currentVideoEl = null;
 
+  // Clear shorts mode
+  $('video-container')?.classList.remove('shorts-mode');
+
   // Exit theater mode if active
   if (isTheaterMode) toggleVideoFS();
 
@@ -755,6 +758,81 @@ function closeLesson() {
 function showCustomControls() {
   const bar = $('custom-vc-bar');
   if (bar) bar.style.display = 'flex';
+}
+
+// Full-cover transparent overlay: captures all taps → play/pause or seek
+function addYtCleanOverlay(slot) {
+  // Remove any old overlay
+  const old = slot.querySelector('#yt-clean-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'yt-clean-overlay';
+  overlay.style.cssText = 'position:absolute;inset:0;z-index:7;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent';
+  slot.appendChild(overlay);
+
+  let tapTimer2 = null;
+  let lastTapTime = 0;
+  let lastTapZone = '';
+
+  function getZone(e) {
+    const rect = overlay.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const pct = x / rect.width;
+    if (pct < 0.33) return 'left';
+    if (pct > 0.67) return 'right';
+    return 'center';
+  }
+
+  function handleTap(e) {
+    const now = Date.now();
+    const zone = getZone(e);
+    const isDouble = (now - lastTapTime) < 320 && zone === lastTapZone;
+    lastTapTime = now;
+    lastTapZone = zone;
+
+    if (isDouble) {
+      clearTimeout(tapTimer2); tapTimer2 = null;
+      if (zone === 'left')  vcSeek(-10);
+      else if (zone === 'right') vcSeek(10);
+      else toggleYtPlayPause();
+    } else {
+      clearTimeout(tapTimer2);
+      tapTimer2 = setTimeout(() => {
+        tapTimer2 = null;
+        toggleYtPlayPause();
+      }, 280);
+    }
+  }
+
+  overlay.addEventListener('click', handleTap);
+  overlay.addEventListener('touchend', e => { e.preventDefault(); handleTap(e); });
+}
+
+function toggleYtPlayPause() {
+  if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+  try {
+    const state = ytPlayer.getPlayerState();
+    // 1 = playing, 2 = paused, 3 = buffering
+    if (state === 1 || state === 3) {
+      ytPlayer.pauseVideo();
+      showPlayPauseFlash('⏸');
+    } else {
+      ytPlayer.playVideo();
+      showPlayPauseFlash('▶');
+    }
+  } catch(_) {}
+}
+
+function showPlayPauseFlash(icon) {
+  const el = $('seek-flash');
+  if (!el) return;
+  el.textContent = icon;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.classList.remove('show'), 700);
 }
 
 function showSeekFlash(delta) {
@@ -855,6 +933,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
   // Clean up previous player
   if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
   currentVideoEl = null;
+  $('video-container')?.classList.remove('shorts-mode');
 
   // Hide controls bar until new video starts playing
   const bar = $('custom-vc-bar');
@@ -886,6 +965,12 @@ function playLesson(courseIdx, lessonAbsIdx) {
   if (link) {
     const ytId = extractYouTubeId(link);
     if (ytId) {
+      // Detect YouTube Shorts (vertical 9:16)
+      const isShort = /\/shorts\//i.test(link);
+      const vc = $('video-container');
+      if (isShort) vc.classList.add('shorts-mode');
+      else vc.classList.remove('shorts-mode');
+
       showUniversalPlayOverlay(() => {
         slot.innerHTML = '';
         hideTapZones();
@@ -896,30 +981,27 @@ function playLesson(courseIdx, lessonAbsIdx) {
         playerDiv.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%';
         slot.appendChild(playerDiv);
 
-        // Add blocking overlays (prevent YouTube branding links)
-        const topLeft = document.createElement('div');
-        topLeft.style.cssText = 'position:absolute;top:0;left:0;width:70%;height:28%;z-index:5;pointer-events:all';
-        slot.appendChild(topLeft);
-
-        const bottomBlock = document.createElement('div');
-        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:18%;z-index:5;pointer-events:all';
-        slot.appendChild(bottomBlock);
-
-        const topRight = document.createElement('div');
-        topRight.id = 'yt-top-right';
-        topRight.style.cssText = 'position:absolute;top:0;right:0;width:30%;height:28%;z-index:5;pointer-events:all;transition:opacity 1s ease';
-        slot.appendChild(topRight);
-        setTimeout(() => {
-          const tr = document.getElementById('yt-top-right');
-          if (tr) { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(() => { if (tr?.parentNode) tr.parentNode.removeChild(tr); }, 1000); }
-        }, 7000);
-
         function createYtPlayer() {
           ytPlayer = new YT.Player(playerDiv.id, {
             videoId: ytId,
-            playerVars: { autoplay: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
+            playerVars: {
+              autoplay: 1,
+              controls: 0,      // ← hide YouTube controls
+              fs: 0,            // ← disable YouTube fullscreen button
+              rel: 0,
+              modestbranding: 1,
+              iv_load_policy: 3,
+              playsinline: 1,
+              showinfo: 0,
+              disablekb: 1,     // ← disable YouTube keyboard shortcuts
+              origin: location.origin
+            },
             events: {
-              onReady: e => { e.target.playVideo(); showCustomControls(); },
+              onReady: e => {
+                e.target.playVideo();
+                showCustomControls();
+                addYtCleanOverlay(slot);
+              }
             }
           });
         }
@@ -927,25 +1009,21 @@ function playLesson(courseIdx, lessonAbsIdx) {
         if (ytApiReady) {
           createYtPlayer();
         } else {
-          // Poll until API is ready (max 8s)
           let tries = 0;
           const poll = setInterval(() => {
             tries++;
             if (window.YT && YT.Player) {
-              ytApiReady = true;
-              clearInterval(poll);
-              createYtPlayer();
+              ytApiReady = true; clearInterval(poll); createYtPlayer();
             } else if (tries > 40) {
               clearInterval(poll);
-              // Fallback to plain iframe if API never loads
+              // Fallback: controls=0 iframe
               slot.innerHTML = '';
-              hideTapZones();
               const iframe = document.createElement('iframe');
-              iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+              iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&fs=0`;
               iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-              iframe.setAttribute('allowfullscreen', '');
               iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
               slot.appendChild(iframe);
+              addYtCleanOverlay(slot);
               showCustomControls();
             }
           }, 200);
@@ -1271,25 +1349,9 @@ function loadDirectVideo(link) {
 const getElapsedSec = () => Math.round((Date.now() - ytStartTime) / 1000);
 
 function setupTapZones() {
-  const left = $('tap-left'), right = $('tap-right'), center = $('tap-center');
-  const container = $('video-container');
-  if (!left || !right || !center) return;
-  function handle(zone) {
-    if (tapTimer) {
-      clearTimeout(tapTimer); tapTimer = null;
-      if (zone === 'left'  && currentYtId) loadYtIframe(currentYtId, Math.max(0, getElapsedSec() - 10));
-      if (zone === 'right' && currentYtId) loadYtIframe(currentYtId, getElapsedSec() + 10);
-    } else {
-      tapTimer = setTimeout(() => {
-        tapTimer = null;
-        if (container.requestFullscreen) container.requestFullscreen();
-        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-      }, 280);
-    }
-  }
-  left.onclick = () => handle('left');
-  right.onclick = () => handle('right');
-  center.onclick = () => handle('center');
+  // Tap zones are now handled by addYtCleanOverlay for YouTube.
+  // For other iframe types, we disable tap zones to avoid conflicts.
+  hideTapZones();
 }
 function prevLesson() {
   const lessons = getLessons(currentCourseIdx);
