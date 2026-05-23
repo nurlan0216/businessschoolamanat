@@ -1,14 +1,3 @@
-/* ── Theme transition ── */
-*, *::before, *::after {
-  transition-property: background-color, color, border-color, box-shadow;
-  transition-duration: 0.35s;
-  transition-timing-function: ease;
-}
-/* Исключаем видео и анимации */
-.video-container *, iframe, video,
-.ambient-orb, .cursor, .cursor-follower,
-[style*="transition"] { transition: none !important; }
-
 /* ============================================================
    BUSINESS SCHOOL AMANAT — PREMIUM DESIGN SYSTEM v3.0
    ============================================================ */
@@ -1763,15 +1752,16 @@ a:active, button:active, .clickable:active { opacity: .75; }
   .cp-lesson-title { font-size: 16px; }
 }
 
-/* ── Плавная смена темы ── */
+/* ══ Плавная смена темы ══════════════════════════════════════════ */
 html.theme-transitioning *,
 html.theme-transitioning *::before,
 html.theme-transitioning *::after {
-  transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease !important;
+  transition: background-color 0.35s ease, color 0.35s ease,
+              border-color 0.35s ease, box-shadow 0.35s ease !important;
 }
-/* Исключаем видео/iframe из перехода */
 html.theme-transitioning iframe,
 html.theme-transitioning video,
-html.theme-transitioning .ambient-orb {
+html.theme-transitioning .ambient-orb,
+html.theme-transitioning canvas {
   transition: none !important;
 }
