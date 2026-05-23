@@ -723,7 +723,6 @@ function openLesson(idx) {
   $('video-section').style.display = 'none';
   $('video-slot').innerHTML = '';
   var _vc = $('video-container'); if (_vc) _vc.style.display = 'none';
-  var _lp = $('lp-title'); if (_lp) _lp.style.display = '';
   $('lesson-modal').classList.remove('video-active');
 
   const course = courses[idx];
@@ -859,7 +858,6 @@ function closeLesson() {
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
   var _vc3 = $('video-container'); if (_vc3) _vc3.style.display = 'none';
-  var _lp3 = $('lp-title'); if (_lp3) _lp3.style.display = '';
   // Уничтожаем YT.Player если был активен
   if (_ytPlayer && typeof _ytPlayer.destroy === 'function') {
     try { _ytPlayer.destroy(); } catch(e) {}
@@ -977,17 +975,17 @@ function buildCustomYtPlayer(slot, ytId) {
   ppBtn.style.cssText = btnStyle;
   ppBtn.innerHTML = `<svg id="cyt-pp-icon" width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>`;
 
-  // Кнопка -10 сек
+  // -10 сек
   const rew10Btn = document.createElement('button');
   rew10Btn.id = 'cyt-rew10';
-  rew10Btn.style.cssText = btnStyle + 'min-width:40px;';
-  rew10Btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15" text-anchor="middle" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
+  rew10Btn.style.cssText = btnStyle + 'min-width:38px;';
+  rew10Btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15.5" text-anchor="middle" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
 
-  // Кнопка +10 сек
+  // +10 сек
   const fwd10Btn = document.createElement('button');
   fwd10Btn.id = 'cyt-fwd10';
-  fwd10Btn.style.cssText = btnStyle + 'min-width:40px;';
-  fwd10Btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12.01 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15" text-anchor="middle" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
+  fwd10Btn.style.cssText = btnStyle + 'min-width:38px;';
+  fwd10Btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15.5" text-anchor="middle" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
 
   // Время
   const timeEl = document.createElement('span');
@@ -1091,9 +1089,9 @@ function buildCustomYtPlayer(slot, ytId) {
     _ytPlayer.seekTo(Math.max(0, Math.min(dur, cur + delta)), true);
     showBar();
   }
-  rew10Btn.addEventListener('click', function(e) { e.stopPropagation(); seek(-10); });
+  rew10Btn.addEventListener('click',    function(e) { e.stopPropagation(); seek(-10); });
   rew10Btn.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); seek(-10); });
-  fwd10Btn.addEventListener('click', function(e) { e.stopPropagation(); seek(10); });
+  fwd10Btn.addEventListener('click',    function(e) { e.stopPropagation(); seek(10); });
   fwd10Btn.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); seek(10); });
 
   // Клик по прогрессу — перемотка
@@ -1451,7 +1449,6 @@ function playLesson(courseIdx, lessonAbsIdx) {
   setupTapZones();
   $('video-section').style.display = 'block';
   var _vc2 = $('video-container'); if (_vc2) _vc2.style.display = '';
-  var _lp2 = $('lp-title'); if (_lp2) _lp2.style.display = 'none';
   if (window.innerWidth <= 640) $('lesson-modal').classList.add('video-active');
   updateModalProgress(courseIdx);
   renderLessonList(courseIdx);
