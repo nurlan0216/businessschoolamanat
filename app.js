@@ -720,6 +720,7 @@ function openLesson(idx) {
   currentCourseIdx = idx;
   $('video-section').style.display = 'none';
   $('video-slot').innerHTML = '';
+  $('video-container').style.display = 'none';
   $('lesson-modal').classList.remove('video-active');
 
   const course = courses[idx];
@@ -854,6 +855,7 @@ function closeLesson() {
   if (isCustomFullscreen) toggleCustomFullscreen();
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
+  $('video-container').style.display = 'none';
   // Уничтожаем YT.Player если был активен
   if (_ytPlayer && typeof _ytPlayer.destroy === 'function') {
     try { _ytPlayer.destroy(); } catch(e) {}
@@ -1440,6 +1442,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
 
   setupTapZones();
   $('video-section').style.display = 'block';
+  $('video-container').style.display = '';
   if (window.innerWidth <= 640) $('lesson-modal').classList.add('video-active');
   updateModalProgress(courseIdx);
   renderLessonList(courseIdx);
