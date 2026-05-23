@@ -1439,6 +1439,72 @@ a, button, [role="button"], .clickable, .platform-card, .action-card {
 }
 a:active, button:active, .clickable:active { opacity: .75; }
 
+/* ════════════════════════════ КАСТОМНЫЙ FULLSCREEN ════════════════ */
+.video-container.custom-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9500 !important;
+  border-radius: 0 !important;
+  aspect-ratio: unset !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000 !important;
+}
+.video-container.custom-fullscreen #video-slot {
+  position: absolute;
+  inset: 0;
+}
+.video-container.custom-fullscreen #video-slot iframe,
+.video-container.custom-fullscreen #video-slot video {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100vh;
+  object-fit: contain;
+}
+/* Кнопка выхода из fullscreen поверх видео */
+.video-container.custom-fullscreen #fs-btn {
+  position: fixed !important;
+  top: 14px !important;
+  right: 14px !important;
+  z-index: 9600 !important;
+  background: rgba(0,0,0,0.65) !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  padding: 10px !important;
+  backdrop-filter: blur(6px) !important;
+}
+.video-container.custom-fullscreen #fs-btn:hover {
+  background: rgba(245,200,66,0.25) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+/* Кнопка fullscreen внутри контейнера */
+.fs-btn {
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.55) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+  border-radius: 9px !important;
+  padding: 8px 10px !important;
+  backdrop-filter: blur(4px);
+}
+.video-container:hover #fs-btn {
+  opacity: 1 !important;
+}
+.video-container.custom-fullscreen #fs-btn {
+  opacity: 1 !important;
+}
+.fs-btn:hover {
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+  background: rgba(245,200,66,0.15) !important;
+}
 
 /* ════════════════════════════ DEMO GRID (превью) ══════════════════ */
 .demo-locked-card {
@@ -1490,202 +1556,28 @@ a:active, button:active, .clickable:active { opacity: .75; }
   border-left: 2px solid var(--gold);
 }
 
-/* ════════════════════════════ COURSE PLAYER PAGE (Bizon365 style) ═══════ */
-#course-player-page {
-  display: flex !important;
-  flex-direction: column;
-  min-height: 100vh;
-  padding-top: var(--header-h);
+/* ══ Кнопка увеличения видео — всегда видна на мобиле ══════════ */
+#fs-btn {
+  opacity: 1 !important;
+  background: rgba(0,0,0,0.70) !important;
+  border: 1.5px solid rgba(255,255,255,0.30) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  cursor: pointer;
+  touch-action: manipulation;
 }
-
-/* Top bar */
-.cp-topbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: var(--header-h);
-  z-index: 100;
-  flex-wrap: wrap;
+#fs-btn:active {
+  background: rgba(245,200,66,0.30) !important;
+  border-color: #f5c842 !important;
 }
-.cp-back-btn {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 9px; padding: 7px 14px;
-  color: var(--text2); font-size: 13px; font-weight: 700;
-  font-family: 'DM Sans', sans-serif; cursor: pointer;
-  transition: all .2s var(--ease); white-space: nowrap;
-  flex-shrink: 0;
+.video-container.custom-fullscreen #fs-btn {
+  background: rgba(0,0,0,0.70) !important;
+  border-color: rgba(255,255,255,0.35) !important;
+  opacity: 1 !important;
 }
-.cp-back-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(245,200,66,0.06); }
-.cp-course-title {
-  flex: 1; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
-  color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  min-width: 0;
-}
-.cp-progress-pill {
-  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 20px; padding: 5px 12px;
-  font-size: 11px; font-weight: 700; color: var(--text3);
-  font-family: 'JetBrains Mono', monospace;
-}
-.cp-mini-track { width: 60px; height: 4px; background: var(--border2); border-radius: 3px; overflow: hidden; }
-.cp-mini-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--orange)); border-radius: 3px; transition: width .5s var(--ease); }
-
-/* Main layout */
-.cp-layout {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* LEFT: video panel */
-.cp-main {
-  flex: 1;
-  min-width: 0;
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.cp-video-wrap {
-  width: 100%;
-  margin-bottom: 18px;
-}
-.cp-video-container {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16/9;
-  background: #000;
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-}
-.cp-video-container #cp-video-slot {
-  position: absolute; inset: 0;
-  border-radius: var(--r-lg);
-  overflow: hidden;
-}
-.cp-video-container iframe {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;
-}
-.cp-video-container .fs-btn {
-  position: absolute; top: 10px; right: 10px; z-index: 60;
-  opacity: 0; transition: opacity .3s;
-}
-.cp-video-container:hover .fs-btn { opacity: 1; }
-
-/* Custom fullscreen for player */
-.cp-video-container.cp-fullscreen {
-  position: fixed; inset: 0;
-  z-index: 9000;
-  border-radius: 0;
-  aspect-ratio: unset;
-}
-
-.cp-lesson-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.cp-lesson-nav {
-  display: flex; gap: 10px;
-}
-.cp-lesson-title {
-  font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800;
-  color: var(--text); line-height: 1.3; letter-spacing: -0.3px;
-}
-.cp-lesson-sub {
-  font-size: 13px; color: var(--text3);
-}
-
-/* RIGHT: sidebar */
-.cp-sidebar {
-  width: 340px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  overflow: hidden;
-}
-.cp-sidebar-header {
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  position: sticky; top: 0; z-index: 10;
-}
-.cp-sidebar-label {
-  display: block;
-  font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800;
-  color: var(--text3); text-transform: uppercase; letter-spacing: 1.2px;
-  margin-bottom: 10px;
-}
-.cp-progress-row {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 0;
-}
-.cp-lesson-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border2) transparent;
-}
-.cp-lesson-list::-webkit-scrollbar { width: 4px; }
-.cp-lesson-list::-webkit-scrollbar-track { background: transparent; }
-.cp-lesson-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
-.cp-lesson-list li {
-  padding: 11px 18px;
-  border-bottom: 1px solid var(--border);
-  gap: 11px;
-}
-.cp-lesson-list li:last-child { border-bottom: none; }
-.cp-lesson-list li.is-current-lesson {
-  background: rgba(245,200,66,0.06);
-  border-left: 3px solid var(--gold);
-  padding-left: 15px;
-}
-
-/* Placeholder when no video selected */
-.cp-empty-state {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 14px; color: var(--text3); text-align: center;
-  padding: 48px 20px;
-  flex: 1;
-}
-.cp-empty-icon { font-size: 52px; }
-.cp-empty-text { font-size: 15px; font-weight: 700; color: var(--text2); }
-.cp-empty-sub { font-size: 13px; }
-
-/* Responsive: tablet */
-@media (max-width: 900px) {
-  .cp-sidebar { width: 280px; }
-}
-
-/* Responsive: mobile — stack vertically */
-@media (max-width: 640px) {
-  .cp-layout { flex-direction: column; overflow: auto; }
-  .cp-sidebar {
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid var(--border);
-    max-height: 50vh;
-    overflow-y: auto;
-  }
-  .cp-main { padding: 12px; }
-  .cp-topbar { padding: 8px 12px; gap: 8px; }
-  .cp-course-title { font-size: 13px; }
-  .cp-progress-pill { display: none; }
-  .cp-lesson-title { font-size: 16px; }
-}
-
 
 /* ══ Плавная смена темы ════════════════════════════════════════ */
 html.theme-transitioning *,
