@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    BUSINESS SCHOOL AMANAT — APP LOGIC v3.2 (UPDATED)
    ============================================================ */
 
@@ -29,6 +29,19 @@ let logoClickTimer     = null;
 
 let filterCoursesTimer = null;
 let filterLessonsTimer = null;
+
+// ─── YouTube IFrame Player API ──────────────────────────
+let ytPlayer         = null;   // YT.Player instance
+let ytApiReady       = false;  // set true once API fires onYouTubeIframeAPIReady
+let currentVideoEl   = null;   // <video> element for direct mp4 playback
+
+// Called automatically by YouTube API script
+window.onYouTubeIframeAPIReady = function() {
+  ytApiReady = true;
+};
+
+// ─── Theater / fullscreen state ─────────────────────────
+let isTheaterMode = false;
 
 let catalogFulfillmentUrl = '';
 let catalogGoldUrl        = '';
@@ -722,8 +735,85 @@ function closeLesson() {
   $('video-slot').innerHTML = '';
   currentLessonIndex = 0; lessonSearchQuery = '';
   $('completion-banner').classList.remove('show');
+
+  // Reset player refs
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
+  currentVideoEl = null;
+
+  // Exit theater mode if active
+  if (isTheaterMode) toggleVideoFS();
+
+  // Hide custom controls
+  const bar = $('custom-vc-bar');
+  if (bar) bar.style.display = 'none';
+
   renderCoursesGrid();
   updateHeroStats();
+}
+
+// ══════════════════════════════ CUSTOM VIDEO CONTROLS ════════════
+function showCustomControls() {
+  const bar = $('custom-vc-bar');
+  if (bar) bar.style.display = 'flex';
+}
+
+function showSeekFlash(delta) {
+  const el = $('seek-flash');
+  if (!el) return;
+  el.textContent = delta > 0 ? `+${delta} сек ⏩` : `${delta} сек ⏪`;
+  el.classList.remove('show');
+  void el.offsetWidth; // reflow to restart animation
+  el.classList.add('show');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.classList.remove('show'), 900);
+}
+
+function vcSeek(delta) {
+  // YouTube IFrame API
+  if (ytPlayer && typeof ytPlayer.getCurrentTime === 'function') {
+    try {
+      const cur = ytPlayer.getCurrentTime();
+      ytPlayer.seekTo(Math.max(0, cur + delta), true);
+      showSeekFlash(delta);
+      return;
+    } catch(_) {}
+  }
+  // Native <video>
+  if (currentVideoEl) {
+    currentVideoEl.currentTime = Math.max(0, currentVideoEl.currentTime + delta);
+    showSeekFlash(delta);
+    return;
+  }
+  // For other iframes (VK, Drive, etc.) — seek not available cross-origin
+  showSeekFlash(delta);
+}
+
+function toggleVideoFS() {
+  const vc = $('video-container');
+  const bar = $('custom-vc-bar');
+  const esc = $('theater-esc');
+  const expandIcon = $('vc-fs-icon-expand');
+  const shrinkIcon = $('vc-fs-icon-shrink');
+
+  if (!isTheaterMode) {
+    // Enter theater mode
+    isTheaterMode = true;
+    vc.classList.add('theater-mode');
+    document.body.classList.add('video-theater');
+    if (esc) esc.style.display = 'flex';
+    if (expandIcon) expandIcon.style.display = 'none';
+    if (shrinkIcon) shrinkIcon.style.display = 'block';
+    // Ensure controls bar visible
+    if (bar) bar.style.display = 'flex';
+  } else {
+    // Exit theater mode
+    isTheaterMode = false;
+    vc.classList.remove('theater-mode');
+    document.body.classList.remove('video-theater');
+    if (esc) esc.style.display = 'none';
+    if (expandIcon) expandIcon.style.display = 'block';
+    if (shrinkIcon) shrinkIcon.style.display = 'none';
+  }
 }
 
 // ══════════════════════════════ IMAGE VIEWER ══════════════════════
@@ -762,6 +852,14 @@ function playLesson(courseIdx, lessonAbsIdx) {
   const lesson  = lessons[lessonAbsIdx];
   if (!lesson || lesson.type !== 'video') return;
 
+  // Clean up previous player
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
+  currentVideoEl = null;
+
+  // Hide controls bar until new video starts playing
+  const bar = $('custom-vc-bar');
+  if (bar) bar.style.display = 'none';
+
   currentCourseIdx = courseIdx;
   currentLessonIndex = lessonAbsIdx;
   markWatched(courseIdx, lessonAbsIdx);
@@ -791,37 +889,67 @@ function playLesson(courseIdx, lessonAbsIdx) {
       showUniversalPlayOverlay(() => {
         slot.innerHTML = '';
         hideTapZones();
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-        slot.appendChild(iframe);
+        currentVideoEl = null;
 
-        // Левый верхний блок — блокирует канал/название, постоянный
+        const playerDiv = document.createElement('div');
+        playerDiv.id = 'yt-player-div-' + Date.now();
+        playerDiv.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%';
+        slot.appendChild(playerDiv);
+
+        // Add blocking overlays (prevent YouTube branding links)
         const topLeft = document.createElement('div');
-        topLeft.style.cssText = 'position:absolute;top:0;left:0;width:70%;height:30%;z-index:5;background:transparent;pointer-events:all';
+        topLeft.style.cssText = 'position:absolute;top:0;left:0;width:70%;height:28%;z-index:5;pointer-events:all';
         slot.appendChild(topLeft);
 
-        // Правый верхний блок — блокирует звук/CC/настройки, исчезает через 7с
+        const bottomBlock = document.createElement('div');
+        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:18%;z-index:5;pointer-events:all';
+        slot.appendChild(bottomBlock);
+
         const topRight = document.createElement('div');
         topRight.id = 'yt-top-right';
-        topRight.style.cssText = 'position:absolute;top:0;right:0;width:30%;height:30%;z-index:5;background:transparent;pointer-events:all;transition:opacity 1s ease';
+        topRight.style.cssText = 'position:absolute;top:0;right:0;width:30%;height:28%;z-index:5;pointer-events:all;transition:opacity 1s ease';
         slot.appendChild(topRight);
-
         setTimeout(() => {
           const tr = document.getElementById('yt-top-right');
-          if (tr) {
-            tr.style.opacity = '0';
-            tr.style.pointerEvents = 'none';
-            setTimeout(() => { if (tr && tr.parentNode) tr.parentNode.removeChild(tr); }, 1000);
-          }
+          if (tr) { tr.style.opacity = '0'; tr.style.pointerEvents = 'none'; setTimeout(() => { if (tr?.parentNode) tr.parentNode.removeChild(tr); }, 1000); }
         }, 7000);
 
-        // Нижний блок — блокирует "Смотреть на YouTube", постоянный
-        const bottomBlock = document.createElement('div');
-        bottomBlock.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:20%;z-index:5;background:transparent;pointer-events:all';
-        slot.appendChild(bottomBlock);
+        function createYtPlayer() {
+          ytPlayer = new YT.Player(playerDiv.id, {
+            videoId: ytId,
+            playerVars: { autoplay: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
+            events: {
+              onReady: e => { e.target.playVideo(); showCustomControls(); },
+            }
+          });
+        }
+
+        if (ytApiReady) {
+          createYtPlayer();
+        } else {
+          // Poll until API is ready (max 8s)
+          let tries = 0;
+          const poll = setInterval(() => {
+            tries++;
+            if (window.YT && YT.Player) {
+              ytApiReady = true;
+              clearInterval(poll);
+              createYtPlayer();
+            } else if (tries > 40) {
+              clearInterval(poll);
+              // Fallback to plain iframe if API never loads
+              slot.innerHTML = '';
+              hideTapZones();
+              const iframe = document.createElement('iframe');
+              iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
+              iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+              iframe.setAttribute('allowfullscreen', '');
+              iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
+              slot.appendChild(iframe);
+              showCustomControls();
+            }
+          }, 200);
+        }
       });
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
       let embedUrl = link;
@@ -846,6 +974,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
+        showCustomControls();
       });
     } else if (link.includes('drive.google.com')) {
       let fileId = null;
@@ -861,6 +990,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.setAttribute('allowfullscreen', '');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
+        showCustomControls();
       });
     } else if (link.includes('cloudflarestream.com') || link.includes('iframe.cloudflarestream.com')) {
       let src = link;
@@ -874,6 +1004,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.setAttribute('allowfullscreen', '');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
+        showCustomControls();
       });
     } else if (link.includes('vimeo.com')) {
       const m = link.match(/vimeo\.com\/(\d+)/);
@@ -888,6 +1019,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.setAttribute('webkitallowfullscreen', 'true');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
+        showCustomControls();
       });
     } else if (link.includes('bunny.net') || link.includes('b-cdn.net') || link.includes('iframe.mediadelivery.net')) {
       let src = link;
@@ -903,10 +1035,12 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.setAttribute('allowfullscreen', '');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
+        showCustomControls();
       });
     } else if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(link)) {
       showUniversalPlayOverlay(() => {
         slot.innerHTML = '';
+        currentVideoEl = null;
         const video = document.createElement('video');
         video.src = link;
         video.controls = true;
@@ -916,6 +1050,8 @@ function playLesson(courseIdx, lessonAbsIdx) {
         video.preload = 'metadata';
         video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;border-radius:inherit';
         slot.appendChild(video);
+        currentVideoEl = video;
+        showCustomControls();
       });
     } else {
       showUniversalPlayOverlay(() => {
@@ -926,6 +1062,7 @@ function playLesson(courseIdx, lessonAbsIdx) {
         iframe.setAttribute('allowfullscreen', '');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
         slot.appendChild(iframe);
+        showCustomControls();
       });
     }
   } else {
@@ -1503,6 +1640,8 @@ function safeAttr(s) {
 // ══════════════════════════════ KEYBOARD NAV ══════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    // First exit theater mode if active
+    if (isTheaterMode) { toggleVideoFS(); return; }
     if ($('lesson-modal').classList.contains('show'))          closeLesson();
     else if ($('img-viewer-modal').classList.contains('show')) closeImageViewer();
     else document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
@@ -1510,6 +1649,10 @@ document.addEventListener('keydown', e => {
   if ($('lesson-modal').classList.contains('show') && $('video-section').style.display !== 'none') {
     if (e.key === 'ArrowLeft')  prevLesson();
     if (e.key === 'ArrowRight') nextLesson();
+    // Keyboard shortcuts for seek
+    if (e.key === 'j' || e.key === 'J') vcSeek(-10);
+    if (e.key === 'l' || e.key === 'L') vcSeek(10);
+    if (e.key === 'f' || e.key === 'F') toggleVideoFS();
   }
 });
 
