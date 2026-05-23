@@ -681,15 +681,14 @@ function toggleCustomFullscreen() {
       </svg>`;
     document.body.style.overflow = '';
   }
-  // Пересчитываем блокировщики после fullscreen-переключения
-  // requestAnimationFrame гарантирует чтение offsetWidth ПОСЛЕ reflow браузера
+  // Пересчитываем блокировщики YouTube под новый размер — ждём 2 фрейма чтобы CSS успел примениться
   var slot = $('video-slot');
-  if (slot && container.querySelector('#yt-player-iframe')) {
+  if (slot && $('video-container').querySelector('#yt-player-iframe')) {
     requestAnimationFrame(function() {
       requestAnimationFrame(function() {
         installYtBlockers(slot);
-        setTimeout(function() { installYtBlockers(slot); }, 100);
-        setTimeout(function() { installYtBlockers(slot); }, 350);
+        setTimeout(function() { installYtBlockers(slot); }, 120);
+        setTimeout(function() { installYtBlockers(slot); }, 400);
       });
     });
   }
@@ -911,6 +910,7 @@ function installYtBlockers(slot) {
     ox = 0; oy = Math.round((sh - vh) / 2);
   }
 
+  // Фабрика div-блокировщика: x,y,w,h — в пикселях от левого верхнего угла контейнера
   function mkB(x, y, w, h, cur, zi) {
     var d = document.createElement('div');
     d.className = 'yt-blocker';
@@ -921,29 +921,20 @@ function installYtBlockers(slot) {
   }
 
   if (isCustomFullscreen) {
-    // ═══ FULLSCREEN-РЕЖИМ: весь контейнер заблокирован, только центр для паузы ═══
-
-    var centerW = Math.round(vw * 0.44);  // центральная зона для паузы/плея
+    // ═══ FULLSCREEN-РЕЖИМ: блокируем всё кроме центра (пауза/плей) ═══
+    var centerW = Math.round(vw * 0.44);
     var centerH = Math.round(vh * 0.44);
     var centerX = ox + Math.round((vw - centerW) / 2);
     var centerY = oy + Math.round((vh - centerH) / 2);
 
-    // ТОП: весь верх (от края до центральной зоны)
+    // Верх, Лево, Право, Низ — вокруг центральной зоны
     container.appendChild(mkB(ox, oy, vw, centerY - oy));
-
-    // ЛЕВО от центра
     container.appendChild(mkB(ox, centerY, centerX - ox, centerH));
-
-    // ПРАВО от центра
     container.appendChild(mkB(centerX + centerW, centerY, ox + vw - (centerX + centerW), centerH));
-
-    // НИЗ: весь низ (от центральной зоны до края)
     container.appendChild(mkB(ox, centerY + centerH, vw, oy + vh - (centerY + centerH)));
 
-    // Выход из fullscreen — только свайп/кнопка назад:
-    // Кнопка "назад" (верх-лево, большая зона для удобного тапа)
+    // Верх-лево: кнопка выхода из fullscreen (большая зона)
     var backZone = mkB(ox, oy, Math.round(vw * 0.18), Math.round(vh * 0.18), 'pointer', 9700);
-    backZone.className += ' yt-blocker-back';
     backZone.title = 'Выйти из полного экрана';
     backZone.addEventListener('click',    function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
     backZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
@@ -951,23 +942,23 @@ function installYtBlockers(slot) {
 
   } else {
     // ═══ ОБЫЧНЫЙ РЕЖИМ: блокируем только панели YouTube ═══
-
-    var topH = Math.round(vh * 0.22);
-    var botH = Math.round(vh * 0.32);
-    var sideW = Math.round(vw * 0.12);
+    var topH  = Math.round(vh * 0.22);  // верхняя панель
+    var botH  = Math.round(vh * 0.32);  // нижняя панель (32% — с запасом)
+    var sideW = Math.round(vw * 0.12);  // боковые полосы
     var sideH = vh - topH - botH;
 
-    // ТОП: название + канал + CC + звук + шестерня (постоянная)
+    // ТОП: название + канал + CC + звук + шестерня
     container.appendChild(mkB(ox, oy, vw, topH));
 
-    // ЛЕВО и ПРАВО: боковые полосы
+    // ЛЕВО и ПРАВО: боковые полосы (рекомендации)
     container.appendChild(mkB(ox, oy + topH, sideW, sideH));
     container.appendChild(mkB(ox + vw - sideW, oy + topH, sideW, sideH));
 
     // НИЗ: прогресс-бар + share + часы + YouTube лого (100% ширины)
     container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
 
-    // НИЗ-ПРАВО поверх: перехват кнопки fullscreen → наш fullscreen (z-index выше)
+    // НИЗ-ПРАВО поверх: перехват кнопки fullscreen YouTube → наш fullscreen
+    // 30% ширины × 32% высоты (совпадает с botH)
     var fsW = Math.round(vw * 0.30);
     var fsZone = mkB(ox + vw - fsW, oy + vh - botH, fsW, botH, 'pointer', 9700);
     fsZone.className += ' yt-blocker-fs';
@@ -976,7 +967,7 @@ function installYtBlockers(slot) {
     container.appendChild(fsZone);
   }
 
-  // ResizeObserver: пересчёт при resize
+  // ResizeObserver: пересчёт при fullscreen toggle / resize окна
   if (container._ytBlockerRO) container._ytBlockerRO.disconnect();
   var ro = new ResizeObserver(function() {
     if (!container.isConnected) { ro.disconnect(); return; }
@@ -1790,51 +1781,6 @@ document.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') nextLesson();
   }
 });
-
-// ══════════════════════════════ FULLSCREEN BACK-BUTTON TRAP ═════
-// Перехватываем кнопку "назад" Android — в fullscreen выходим из него, не из страницы
-(function() {
-  var fsHistoryPushed = false;
-
-  // Когда входим в fullscreen — пушим фиктивную запись в history
-  // чтобы кнопка "назад" сначала возвращала сюда
-  var _origToggle = toggleCustomFullscreen;
-  toggleCustomFullscreen = function() {
-    _origToggle();
-    if (isCustomFullscreen) {
-      // вошли в fullscreen — добавляем запись
-      history.pushState({ ytFs: true }, '');
-      fsHistoryPushed = true;
-    } else {
-      // вышли из fullscreen
-      if (fsHistoryPushed) {
-        fsHistoryPushed = false;
-        // не делаем history.back() — мы уже вышли
-      }
-    }
-  };
-
-  // Кнопка "назад" браузера/Android
-  window.addEventListener('popstate', function(e) {
-    if (isCustomFullscreen) {
-      // выходим из fullscreen вместо навигации назад
-      fsHistoryPushed = false;
-      _origToggle(); // вызываем оригинал напрямую чтобы не дублировать pushState
-    }
-  });
-
-  // Свайп вниз (touchstart/touchend) в fullscreen — блокируем
-  var _touchStartY = 0;
-  document.addEventListener('touchstart', function(e) {
-    _touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-  document.addEventListener('touchend', function(e) {
-    if (!isCustomFullscreen) return;
-    var dy = e.changedTouches[0].clientY - _touchStartY;
-    // Свайп вниз больше 80px в fullscreen — выходим
-    if (dy > 80) { if (isCustomFullscreen) toggleCustomFullscreen(); }
-  }, { passive: true });
-})();
 
 // ══════════════════════════════ INPUT HELPERS ═════════════════════
 $('inp-iin').addEventListener('input',   function () { this.value = this.value.replace(/\D/g, ''); });
