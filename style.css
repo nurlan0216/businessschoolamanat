@@ -1752,7 +1752,30 @@ a:active, button:active, .clickable:active { opacity: .75; }
   .cp-lesson-title { font-size: 16px; }
 }
 
-/* ══ Плавная смена темы ══════════════════════════════════════════ */
+/* ══ Кнопка увеличения видео — всегда видна на мобиле ══════════ */
+#fs-btn {
+  opacity: 1 !important;
+  background: rgba(0,0,0,0.70) !important;
+  border: 1.5px solid rgba(255,255,255,0.30) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#fs-btn:active {
+  background: rgba(245,200,66,0.30) !important;
+  border-color: #f5c842 !important;
+}
+.video-container.custom-fullscreen #fs-btn {
+  background: rgba(0,0,0,0.70) !important;
+  border-color: rgba(255,255,255,0.35) !important;
+  opacity: 1 !important;
+}
+
+/* ══ Плавная смена темы ════════════════════════════════════════ */
 html.theme-transitioning *,
 html.theme-transitioning *::before,
 html.theme-transitioning *::after {
@@ -1761,7 +1784,6 @@ html.theme-transitioning *::after {
 }
 html.theme-transitioning iframe,
 html.theme-transitioning video,
-html.theme-transitioning .ambient-orb,
-html.theme-transitioning canvas {
+html.theme-transitioning .ambient-orb {
   transition: none !important;
 }
