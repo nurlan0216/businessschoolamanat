@@ -6,7 +6,7 @@
 
 // ══════════════════════════════ CONSTANTS ══════════════════════════
 const SHEET_ID_DEFAULT = '1_y_qWhuJPybW3hPo91t3bRNu-xd0LS3dojfZbI8fk1A';
-const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbxS5Be4kiO3OD9LDwxfnUz56waz2aQMNfMrj3wmKz0FIFlaNsiJdypy4V2xukhlI07k/exec';
+const LOG_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbywfO2d6H0vrXWZUIm3-Ykn5bwIfDC93tPhfNY-eoF4MfQY0Yu4CJiewTQrsVp_vgQk/exec';
 const ADMIN_PASSWORD   = 'N20020216$$';
 const DEFAULT_COLORS   = ['#e31e24','#9d4ed0','#0055ff','#22c48a','#f5c842','#ff5c35','#229ED9','#e1306c','#ff9800','#00bcd4'];
 
