@@ -660,41 +660,7 @@ function renderDemoGrid() {
   section.style.display = 'block';
 }
 
-// ══════════════════════════════ КАСТОМНЫЙ FULLSCREEN ════════════
-function toggleCustomFullscreen() {
-  const container = $('video-container');
-  const btn       = $('fs-btn');
-  if (!container) return;
-  isCustomFullscreen = !isCustomFullscreen;
-  if (isCustomFullscreen) {
-    container.classList.add('custom-fullscreen');
-    if (btn) btn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
-        <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
-      </svg>`;
-    document.body.style.overflow = 'hidden';
-  } else {
-    container.classList.remove('custom-fullscreen');
-    if (btn) btn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
-        <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-      </svg>`;
-    document.body.style.overflow = '';
-  }
-  // Пересчитываем блокировщики YouTube под новый размер — ждём 2 фрейма чтобы CSS успел примениться
-  var slot = $('video-slot');
-  if (slot && $('video-container').querySelector('#yt-player-iframe')) {
-    requestAnimationFrame(function() {
-      requestAnimationFrame(function() {
-        installYtBlockers(slot);
-        setTimeout(function() { installYtBlockers(slot); }, 120);
-        setTimeout(function() { installYtBlockers(slot); }, 400);
-      });
-    });
-  }
-}
+// toggleCustomFullscreen удалена — кнопка ⤢ убрана с мобиля (открывала чёрный экран)
 
 // ══════════════════════════════ СКРОЛЛ К "НАЧНИ ЗДЕСЬ" ═══════════
 function scrollToStartLesson() {
@@ -854,7 +820,6 @@ function renderLessonList(idx) {
 
 // ══════════════════════════════ CLOSE LESSON ══════════════════════
 function closeLesson() {
-  if (isCustomFullscreen) toggleCustomFullscreen();
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
   var _vc3 = $('video-container'); if (_vc3) _vc3.style.display = 'none';
@@ -1190,45 +1155,16 @@ function installYtBlockers(slot) {
     return d;
   }
 
-  if (isCustomFullscreen) {
-    // ═══ FULLSCREEN-РЕЖИМ: блокируем всё кроме центра (пауза/плей) ═══
-    var centerW = Math.round(vw * 0.44);
-    var centerH = Math.round(vh * 0.44);
-    var centerX = ox + Math.round((vw - centerW) / 2);
-    var centerY = oy + Math.round((vh - centerH) / 2);
+  // ═══ ОБЫЧНЫЙ РЕЖИМ: блокируем только панели YouTube ═══
+  var topH  = Math.round(vh * 0.22);
+  var botH  = Math.round(vh * 0.32);
+  var sideW = Math.round(vw * 0.12);
+  var sideH = vh - topH - botH;
 
-    // Верх, Лево, Право, Низ — вокруг центральной зоны
-    container.appendChild(mkB(ox, oy, vw, centerY - oy));
-    container.appendChild(mkB(ox, centerY, centerX - ox, centerH));
-    container.appendChild(mkB(centerX + centerW, centerY, ox + vw - (centerX + centerW), centerH));
-    container.appendChild(mkB(ox, centerY + centerH, vw, oy + vh - (centerY + centerH)));
-
-    // Верх-лево: кнопка выхода из fullscreen (большая зона)
-    var backZone = mkB(ox, oy, Math.round(vw * 0.18), Math.round(vh * 0.18), 'pointer', 9700);
-    backZone.title = 'Выйти из полного экрана';
-    backZone.addEventListener('click',    function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
-    backZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
-    container.appendChild(backZone);
-
-  } else {
-    // ═══ ОБЫЧНЫЙ РЕЖИМ: блокируем только панели YouTube ═══
-    var topH  = Math.round(vh * 0.22);  // верхняя панель
-    var botH  = Math.round(vh * 0.32);  // нижняя панель (32% — с запасом)
-    var sideW = Math.round(vw * 0.12);  // боковые полосы
-    var sideH = vh - topH - botH;
-
-    // ТОП: название + канал + CC + звук + шестерня
-    container.appendChild(mkB(ox, oy, vw, topH));
-
-    // ЛЕВО и ПРАВО: боковые полосы (рекомендации)
-    container.appendChild(mkB(ox, oy + topH, sideW, sideH));
-    container.appendChild(mkB(ox + vw - sideW, oy + topH, sideW, sideH));
-
-    // НИЗ: прогресс-бар + share + часы + YouTube лого (100% ширины)
-    container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
-
-
-  }
+  container.appendChild(mkB(ox, oy, vw, topH));
+  container.appendChild(mkB(ox, oy + topH, sideW, sideH));
+  container.appendChild(mkB(ox + vw - sideW, oy + topH, sideW, sideH));
+  container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
 
   // ResizeObserver: пересчёт при fullscreen toggle / resize окна
   if (container._ytBlockerRO) container._ytBlockerRO.disconnect();
@@ -2028,7 +1964,6 @@ function safeAttr(s) {
 // ══════════════════════════════ KEYBOARD NAV ══════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (isCustomFullscreen) { toggleCustomFullscreen(); return; }
     if ($('lesson-modal').classList.contains('show'))          closeLesson();
     else if ($('img-viewer-modal').classList.contains('show')) closeImageViewer();
     else document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
