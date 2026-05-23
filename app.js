@@ -660,7 +660,70 @@ function renderDemoGrid() {
   section.style.display = 'block';
 }
 
-// toggleCustomFullscreen удалена — кнопка ⤢ убрана с мобиля (открывала чёрный экран)
+// ══════════════════════════════ НАТИВНЫЙ FULLSCREEN ════════════
+function enterVideoFullscreen() {
+  const container = $('video-container');
+  if (!container) return;
+
+  const fsEl = container.querySelector('iframe') || container.querySelector('video') || container;
+
+  const requestFs = fsEl.requestFullscreen
+    || fsEl.webkitRequestFullscreen
+    || fsEl.mozRequestFullScreen
+    || fsEl.msRequestFullscreen;
+
+  if (requestFs) {
+    requestFs.call(fsEl).catch(function() {
+      // Fallback: если браузер запретил — делаем кастомный fullscreen
+      toggleFallbackFullscreen(container);
+    });
+  } else {
+    toggleFallbackFullscreen(container);
+  }
+}
+
+// Fallback для браузеров без Fullscreen API (старые iOS Safari)
+function toggleFallbackFullscreen(container) {
+  const isFs = container.classList.contains('custom-fullscreen');
+  if (isFs) {
+    container.classList.remove('custom-fullscreen');
+    document.body.style.overflow = '';
+    updateFsBtn(false);
+  } else {
+    container.classList.add('custom-fullscreen');
+    document.body.style.overflow = 'hidden';
+    updateFsBtn(true);
+  }
+}
+
+function updateFsBtn(isFullscreen) {
+  const btn = $('video-fs-btn');
+  const label = $('video-fs-label');
+  if (!btn) return;
+  if (isFullscreen) {
+    btn.querySelector('svg').innerHTML = '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>';
+    if (label) label.textContent = 'Выйти';
+  } else {
+    btn.querySelector('svg').innerHTML = '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';
+    if (label) label.textContent = 'Полный экран';
+  }
+}
+
+// Слушаем выход из нативного fullscreen
+document.addEventListener('fullscreenchange', function() {
+  const container = $('video-container');
+  if (!container) return;
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  updateFsBtn(isFs);
+  if (!isFs) container.classList.remove('custom-fullscreen');
+});
+document.addEventListener('webkitfullscreenchange', function() {
+  const container = $('video-container');
+  if (!container) return;
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  updateFsBtn(isFs);
+});
+
 
 // ══════════════════════════════ СКРОЛЛ К "НАЧНИ ЗДЕСЬ" ═══════════
 function scrollToStartLesson() {
@@ -820,6 +883,13 @@ function renderLessonList(idx) {
 
 // ══════════════════════════════ CLOSE LESSON ══════════════════════
 function closeLesson() {
+  // Выйти из нативного fullscreen если активен
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
+  }
+  const container = $('video-container');
+  if (container) container.classList.remove('custom-fullscreen');
+  document.body.style.overflow = '';
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
   var _vc3 = $('video-container'); if (_vc3) _vc3.style.display = 'none';
@@ -1165,6 +1235,8 @@ function installYtBlockers(slot) {
   container.appendChild(mkB(ox, oy + topH, sideW, sideH));
   container.appendChild(mkB(ox + vw - sideW, oy + topH, sideW, sideH));
   container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
+
+  }
 
   // ResizeObserver: пересчёт при fullscreen toggle / resize окна
   if (container._ytBlockerRO) container._ytBlockerRO.disconnect();
