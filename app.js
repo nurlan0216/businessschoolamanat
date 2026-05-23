@@ -141,9 +141,11 @@ function initTheme() {
   document.documentElement.setAttribute('data-theme', currentTheme);
 }
 function toggleTheme() {
+  document.documentElement.classList.add('theme-transitioning');
   currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
   localStorage.setItem('theme', currentTheme);
   initTheme();
+  setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 400);
 }
 initTheme();
 
@@ -721,6 +723,8 @@ function openLesson(idx) {
   $('video-section').style.display = 'none';
   $('video-slot').innerHTML = '';
   $('video-container').style.display = 'none';
+  const _lpTitle = $('lp-title');
+  if (_lpTitle) _lpTitle.style.display = '';
   $('lesson-modal').classList.remove('video-active');
 
   const course = courses[idx];
@@ -856,6 +860,8 @@ function closeLesson() {
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
   $('video-container').style.display = 'none';
+  const _lpTitle = $('lp-title');
+  if (_lpTitle) _lpTitle.style.display = '';
   // Уничтожаем YT.Player если был активен
   if (_ytPlayer && typeof _ytPlayer.destroy === 'function') {
     try { _ytPlayer.destroy(); } catch(e) {}
@@ -970,24 +976,33 @@ function buildCustomYtPlayer(slot, ytId) {
   // Play/Pause кнопка
   const ppBtn = document.createElement('button');
   ppBtn.id = 'cyt-pp';
-  ppBtn.style.cssText = btnStyle;
+  ppBtn.style.cssText = btnStyle + 'padding:6px 10px;';
   ppBtn.innerHTML = `<svg id="cyt-pp-icon" width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>`;
+
+  // Кнопка -10 сек
+  const rew10Btn = document.createElement('button');
+  rew10Btn.id = 'cyt-rew10';
+  rew10Btn.title = '-10 сек';
+  rew10Btn.style.cssText = btnStyle + 'padding:6px 10px;font-size:11px;font-family:sans-serif;font-weight:700;gap:2px;';
+  rew10Btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15.5" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
+
+  // Кнопка +10 сек
+  const fwd10Btn = document.createElement('button');
+  fwd10Btn.id = 'cyt-fwd10';
+  fwd10Btn.title = '+10 сек';
+  fwd10Btn.style.cssText = btnStyle + 'padding:6px 10px;font-size:11px;font-family:sans-serif;font-weight:700;gap:2px;';
+  fwd10Btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15.5" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white">10</text></svg>`;
 
   // Время
   const timeEl = document.createElement('span');
   timeEl.id = 'cyt-time';
-  timeEl.style.cssText = 'color:#fff;font-size:12px;font-family:sans-serif;flex:1;';
+  timeEl.style.cssText = 'color:#fff;font-size:12px;font-family:sans-serif;flex:1;text-align:center;';
   timeEl.textContent = '0:00 / 0:00';
 
-  // Fullscreen кнопка
-  const fsBtn = document.createElement('button');
-  fsBtn.id = 'cyt-fs';
-  fsBtn.style.cssText = btnStyle;
-  fsBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
-
   btnRow.appendChild(ppBtn);
+  btnRow.appendChild(rew10Btn);
+  btnRow.appendChild(fwd10Btn);
   btnRow.appendChild(timeEl);
-  btnRow.appendChild(fsBtn);
   bar.appendChild(btnRow);
   ctrl.appendChild(bar);
   wrap.appendChild(ctrl);
@@ -1055,7 +1070,8 @@ function buildCustomYtPlayer(slot, ytId) {
   // Клик по центру = play/pause
   ctrl.addEventListener('click', function(e) {
     if (e.target === ppBtn || ppBtn.contains(e.target)) return;
-    if (e.target === fsBtn || fsBtn.contains(e.target)) return;
+    if (e.target === rew10Btn || rew10Btn.contains(e.target)) return;
+    if (e.target === fwd10Btn || fwd10Btn.contains(e.target)) return;
     if (e.target === progWrap || progWrap.contains(e.target)) return;
     if (!_ytPlayer || typeof _ytPlayer.getPlayerState !== 'function') return;
     const st = _ytPlayer.getPlayerState();
@@ -1071,14 +1087,37 @@ function buildCustomYtPlayer(slot, ytId) {
     else _ytPlayer.playVideo();
   });
 
-  fsBtn.addEventListener('click', function(e) {
+  // Кнопки ±10 сек
+  rew10Btn.addEventListener('click', function(e) {
     e.stopPropagation();
-    const container = $('video-container') || slot.closest('#video-container') || slot.parentElement;
-    if (document.fullscreenElement) {
-      document.exitFullscreen && document.exitFullscreen();
-    } else {
-      (container.requestFullscreen || container.webkitRequestFullscreen || function(){}).call(container);
-    }
+    if (!_ytPlayer || typeof _ytPlayer.getCurrentTime !== 'function') return;
+    const cur = _ytPlayer.getCurrentTime() || 0;
+    _ytPlayer.seekTo(Math.max(0, cur - 10), true);
+    showBar();
+  });
+  rew10Btn.addEventListener('touchend', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    if (!_ytPlayer || typeof _ytPlayer.getCurrentTime !== 'function') return;
+    const cur = _ytPlayer.getCurrentTime() || 0;
+    _ytPlayer.seekTo(Math.max(0, cur - 10), true);
+    showBar();
+  });
+
+  fwd10Btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (!_ytPlayer || typeof _ytPlayer.getDuration !== 'function') return;
+    const cur = _ytPlayer.getCurrentTime() || 0;
+    const dur = _ytPlayer.getDuration() || 0;
+    _ytPlayer.seekTo(Math.min(dur, cur + 10), true);
+    showBar();
+  });
+  fwd10Btn.addEventListener('touchend', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    if (!_ytPlayer || typeof _ytPlayer.getDuration !== 'function') return;
+    const cur = _ytPlayer.getCurrentTime() || 0;
+    const dur = _ytPlayer.getDuration() || 0;
+    _ytPlayer.seekTo(Math.min(dur, cur + 10), true);
+    showBar();
   });
 
   // Клик по прогрессу — перемотка
@@ -1214,14 +1253,7 @@ function installYtBlockers(slot) {
     // НИЗ: прогресс-бар + share + часы + YouTube лого (100% ширины)
     container.appendChild(mkB(ox, oy + vh - botH, vw, botH));
 
-    // НИЗ-ПРАВО поверх: перехват кнопки fullscreen YouTube → наш fullscreen
-    // 30% ширины × 32% высоты (совпадает с botH)
-    var fsW = Math.round(vw * 0.30);
-    var fsZone = mkB(ox + vw - fsW, oy + vh - botH, fsW, botH, 'pointer', 9700);
-    fsZone.className += ' yt-blocker-fs';
-    fsZone.addEventListener('click',    function(e) { e.stopPropagation(); toggleCustomFullscreen(); });
-    fsZone.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); toggleCustomFullscreen(); });
-    container.appendChild(fsZone);
+
   }
 
   // ResizeObserver: пересчёт при fullscreen toggle / resize окна
@@ -1443,6 +1475,8 @@ function playLesson(courseIdx, lessonAbsIdx) {
   setupTapZones();
   $('video-section').style.display = 'block';
   $('video-container').style.display = '';
+  const _lpTitle = $('lp-title');
+  if (_lpTitle) _lpTitle.style.display = 'none';
   if (window.innerWidth <= 640) $('lesson-modal').classList.add('video-active');
   updateModalProgress(courseIdx);
   renderLessonList(courseIdx);
