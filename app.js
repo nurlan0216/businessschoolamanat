@@ -854,6 +854,11 @@ function closeLesson() {
   if (isCustomFullscreen) toggleCustomFullscreen();
   $('lesson-modal').classList.remove('show', 'video-active');
   $('video-section').style.display = 'none';
+  // Уничтожаем YT.Player если был активен
+  if (_ytPlayer && typeof _ytPlayer.destroy === 'function') {
+    try { _ytPlayer.destroy(); } catch(e) {}
+    _ytPlayer = null;
+  }
   $('video-slot').innerHTML = '';
   currentLessonIndex = 0; lessonSearchQuery = '';
   $('completion-banner').classList.remove('show');
@@ -874,6 +879,256 @@ function openImageViewer(url, name) {
 function closeImageViewer() {
   $('img-viewer-modal').classList.remove('show');
   setTimeout(() => { $('img-viewer-src').src = ''; }, 300);
+}
+
+// ===== CUSTOM YOUTUBE PLAYER (bizon365-style: no YT controls) =====
+let _ytApiReady = false;
+let _ytApiCallbacks = [];
+function loadYtApi(cb) {
+  if (_ytApiReady) { cb(); return; }
+  _ytApiCallbacks.push(cb);
+  if (document.getElementById('yt-api-script')) return;
+  window.onYouTubeIframeAPIReady = function () {
+    _ytApiReady = true;
+    _ytApiCallbacks.forEach(fn => fn());
+    _ytApiCallbacks = [];
+  };
+  const s = document.createElement('script');
+  s.id = 'yt-api-script';
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+}
+
+let _ytPlayer = null; // активный YT.Player
+
+function buildCustomYtPlayer(slot, ytId) {
+  slot.innerHTML = '';
+  hideTapZones();
+
+  // Контейнер плеера
+  const wrap = document.createElement('div');
+  wrap.id = 'cyt-wrap';
+  wrap.style.cssText = 'position:absolute;inset:0;background:#000;overflow:hidden;';
+
+  // Div для YT.Player (iframe вставится сюда)
+  const playerDiv = document.createElement('div');
+  playerDiv.id = 'cyt-player-div';
+  playerDiv.style.cssText = 'position:absolute;top:-60px;left:0;width:100%;height:calc(100% + 120px);';
+  wrap.appendChild(playerDiv);
+
+  // Оверлей управления поверх видео
+  const ctrl = document.createElement('div');
+  ctrl.id = 'cyt-ctrl';
+  ctrl.style.cssText = `
+    position:absolute;inset:0;z-index:20;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+  `;
+
+  // Большая кнопка play по центру (скрывается при воспроизведении)
+  const playBtn = document.createElement('div');
+  playBtn.id = 'cyt-play-btn';
+  playBtn.style.cssText = `
+    width:80px;height:80px;background:rgba(0,0,0,0.65);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 24px rgba(0,0,0,0.6);
+    transition:opacity 0.3s,transform 0.15s;
+    pointer-events:none;
+  `;
+  playBtn.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="white" style="margin-left:4px"><polygon points="5 3 19 12 5 21"/></svg>`;
+  ctrl.appendChild(playBtn);
+
+  // Нижняя панель кастомных контролов
+  const bar = document.createElement('div');
+  bar.id = 'cyt-bar';
+  bar.style.cssText = `
+    position:absolute;bottom:0;left:0;right:0;
+    background:linear-gradient(transparent,rgba(0,0,0,0.85));
+    padding:32px 14px 10px;
+    opacity:0;transition:opacity 0.3s;
+    display:flex;flex-direction:column;gap:6px;
+    pointer-events:none;
+  `;
+
+  // Прогресс-бар
+  const progWrap = document.createElement('div');
+  progWrap.style.cssText = 'position:relative;height:4px;background:rgba(255,255,255,0.3);border-radius:2px;cursor:pointer;pointer-events:auto;';
+  const progFill = document.createElement('div');
+  progFill.id = 'cyt-progress';
+  progFill.style.cssText = 'height:100%;width:0%;background:var(--gold,#f5c842);border-radius:2px;transition:width 0.5s linear;';
+  progWrap.appendChild(progFill);
+  bar.appendChild(progWrap);
+
+  // Кнопки нижней строки
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;align-items:center;gap:10px;pointer-events:auto;';
+
+  const btnStyle = `background:none;border:none;color:#fff;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;opacity:0.9;-webkit-tap-highlight-color:transparent;`;
+
+  // Play/Pause кнопка
+  const ppBtn = document.createElement('button');
+  ppBtn.id = 'cyt-pp';
+  ppBtn.style.cssText = btnStyle;
+  ppBtn.innerHTML = `<svg id="cyt-pp-icon" width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>`;
+
+  // Время
+  const timeEl = document.createElement('span');
+  timeEl.id = 'cyt-time';
+  timeEl.style.cssText = 'color:#fff;font-size:12px;font-family:sans-serif;flex:1;';
+  timeEl.textContent = '0:00 / 0:00';
+
+  // Fullscreen кнопка
+  const fsBtn = document.createElement('button');
+  fsBtn.id = 'cyt-fs';
+  fsBtn.style.cssText = btnStyle;
+  fsBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
+
+  btnRow.appendChild(ppBtn);
+  btnRow.appendChild(timeEl);
+  btnRow.appendChild(fsBtn);
+  bar.appendChild(btnRow);
+  ctrl.appendChild(bar);
+  wrap.appendChild(ctrl);
+  slot.appendChild(wrap);
+
+  // Показ/скрытие панели при hover/tap
+  let hideBarTimer = null;
+  function showBar() {
+    bar.style.opacity = '1';
+    bar.style.pointerEvents = 'auto';
+    clearTimeout(hideBarTimer);
+    hideBarTimer = setTimeout(hideBar, 3000);
+  }
+  function hideBar() {
+    bar.style.opacity = '0';
+    bar.style.pointerEvents = 'none';
+  }
+  ctrl.addEventListener('mouseenter', showBar);
+  ctrl.addEventListener('mouseleave', hideBar);
+  ctrl.addEventListener('touchstart', (e) => {
+    if (bar.style.opacity === '0') { showBar(); }
+  }, { passive: true });
+
+  // Форматирование времени
+  function fmt(s) {
+    if (!isFinite(s)) return '0:00';
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+  }
+
+  let isPlaying = false;
+  let progTimer = null;
+
+  function updateProgress() {
+    if (!_ytPlayer || typeof _ytPlayer.getCurrentTime !== 'function') return;
+    try {
+      const cur = _ytPlayer.getCurrentTime() || 0;
+      const dur = _ytPlayer.getDuration() || 0;
+      if (dur > 0) {
+        progFill.style.width = (cur / dur * 100) + '%';
+        timeEl.textContent = fmt(cur) + ' / ' + fmt(dur);
+      }
+    } catch(e) {}
+  }
+
+  function startProgressTimer() {
+    clearInterval(progTimer);
+    progTimer = setInterval(updateProgress, 500);
+  }
+  function stopProgressTimer() { clearInterval(progTimer); }
+
+  function setPlayState(playing) {
+    isPlaying = playing;
+    playBtn.style.opacity = playing ? '0' : '1';
+    const icon = document.getElementById('cyt-pp-icon');
+    if (icon) {
+      icon.innerHTML = playing
+        ? `<rect x="6" y="4" width="4" height="16" fill="white"/><rect x="14" y="4" width="4" height="16" fill="white"/>`
+        : `<polygon points="5 3 19 12 5 21" fill="white"/>`;
+    }
+    if (playing) startProgressTimer();
+    else stopProgressTimer();
+  }
+
+  // Клик по центру = play/pause
+  ctrl.addEventListener('click', function(e) {
+    if (e.target === ppBtn || ppBtn.contains(e.target)) return;
+    if (e.target === fsBtn || fsBtn.contains(e.target)) return;
+    if (e.target === progWrap || progWrap.contains(e.target)) return;
+    if (!_ytPlayer || typeof _ytPlayer.getPlayerState !== 'function') return;
+    const st = _ytPlayer.getPlayerState();
+    if (st === 1) { _ytPlayer.pauseVideo(); showBar(); }
+    else { _ytPlayer.playVideo(); showBar(); }
+  });
+
+  ppBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (!_ytPlayer) return;
+    const st = _ytPlayer.getPlayerState();
+    if (st === 1) _ytPlayer.pauseVideo();
+    else _ytPlayer.playVideo();
+  });
+
+  fsBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const container = $('video-container') || slot.closest('#video-container') || slot.parentElement;
+    if (document.fullscreenElement) {
+      document.exitFullscreen && document.exitFullscreen();
+    } else {
+      (container.requestFullscreen || container.webkitRequestFullscreen || function(){}).call(container);
+    }
+  });
+
+  // Клик по прогрессу — перемотка
+  progWrap.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (!_ytPlayer || typeof _ytPlayer.getDuration !== 'function') return;
+    const rect = progWrap.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    _ytPlayer.seekTo(_ytPlayer.getDuration() * ratio, true);
+    showBar();
+  });
+
+  // Инициализируем YT.Player
+  loadYtApi(() => {
+    if (_ytPlayer && typeof _ytPlayer.destroy === 'function') {
+      try { _ytPlayer.destroy(); } catch(e) {}
+    }
+    _ytPlayer = new YT.Player('cyt-player-div', {
+      videoId: ytId,
+      playerVars: {
+        autoplay: 1,
+        controls: 0,          // ← скрываем все контролы YouTube
+        disablekb: 1,          // ← отключаем клавиатуру YouTube
+        rel: 0,
+        modestbranding: 1,
+        iv_load_policy: 3,
+        playsinline: 1,
+        fs: 0,                 // ← скрываем кнопку fullscreen YouTube
+        showinfo: 0,
+        cc_load_policy: 0,
+        origin: location.origin,
+      },
+      events: {
+        onReady: function(e) {
+          e.target.playVideo();
+          setPlayState(true);
+          showBar();
+        },
+        onStateChange: function(e) {
+          // 1=playing, 2=paused, 0=ended
+          if (e.data === 1) setPlayState(true);
+          if (e.data === 2) { setPlayState(false); showBar(); }
+          if (e.data === 0) {
+            setPlayState(false);
+            stopProgressTimer();
+            showNextSuggestion();
+          }
+        },
+        onError: function() {}
+      }
+    });
+  });
 }
 
 // ===== UNIVERSAL OVERLAY ДЛЯ ЗАПУСКА ВИДЕО ======
@@ -1069,30 +1324,10 @@ function playLesson(courseIdx, lessonAbsIdx) {
   if (link) {
     const ytId = extractYouTubeId(link);
     if (ytId) {
+      // Кастомный плеер — без интерфейса YouTube (bizon365-style)
       showUniversalPlayOverlay(() => {
-        slot.innerHTML = '';
-        hideTapZones();
-        const iframe = document.createElement('iframe');
-        iframe.id = 'yt-player-iframe';
-        // Use youtube-nocookie.com for better mobile compatibility and privacy
-        // playsinline=1 is critical for iOS/Android inline playback
-        iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1&origin=${encodeURIComponent(location.origin)}`;
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen';
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.setAttribute('webkitallowfullscreen', '');
-        iframe.setAttribute('mozallowfullscreen', '');
-        iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-        slot.appendChild(iframe);
-
-        // Универсальные оверлеи — авто-блокировка зон YouTube (название/канал, share/часы, лого YouTube)
-        if (window.installYtBlockers) {
-          window.installYtBlockers(slot);
-        } else {
-          installYtBlockers(slot);
-        }
-        // Авто-детект окончания видео через postMessage YouTube IFrame API
-        attachYtEndListener(iframe);
+        buildCustomYtPlayer($('video-slot'), ytId);
+        attachYtEndListener({ contentWindow: null }); // endListener теперь внутри buildCustomYtPlayer
       });
     } else if (link.includes('vk.com') || link.includes('vkvideo.ru')) {
       let embedUrl = link;
