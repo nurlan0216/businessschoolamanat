@@ -54,9 +54,9 @@ let tgChannelUrl          = '';  // A7 — ссылка на ТГ-канал с 
 
 // Переменная для хранения фонового интервала проверки блокировки
 let securityCheckInterval = null;
-
-// Demo section state
-let demoTimerInterval  = null;
+let demoTimerInterval     = null;
+let demoyYtPlayer         = null;
+let demoIsTheater         = false;
 
 // ══════════════════════════════ TRANSLATIONS ══════════════════════
 const T = {
@@ -532,47 +532,84 @@ function openDemoLesson(idx) {
   const course = courses[idx];
   if (!course) return;
   const name    = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+  const color   = course.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
   const lessons = lang === 'kz' ? course.lessonsKZ : course.lessonsRU;
   const first   = lessons.find(l => l.type === 'video');
-  if (!first || !first.url) {
-    showToast('Демо-урок недоступен для этого курса', 'error');
-    return;
-  }
+  if (!first || !first.url) { showToast('Демо-урок недоступен для этого курса', 'error'); return; }
 
   const ytId = extractYouTubeId(first.url);
-  if (!ytId) {
-    showToast('Демо-урок недоступен', 'error');
-    return;
-  }
+  if (!ytId) { showToast('Демо-урок недоступен', 'error'); return; }
+
+  const lessonTitle = first.name || (lang === 'kz' ? 'Сабақ 1' : 'Урок 1');
 
   // Build overlay
   const overlay = document.createElement('div');
   overlay.className = 'demo-video-overlay';
   overlay.id = 'demo-video-overlay';
   overlay.innerHTML = `
-    <div class="demo-video-inner">
-      <button class="demo-video-close" onclick="closeDemoLesson()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <div class="demo-video-title">🎓 ${escHtml(name)} — ${escHtml(first.name || 'Урок 1')}</div>
-      <div style="position:relative;padding-bottom:56.25%;background:#000;border-radius:12px;overflow:hidden">
-        <iframe id="demo-yt-frame"
-          src="https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&end=30"
-          style="position:absolute;inset:0;width:100%;height:100%;border:none"
-          allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    <div class="demo-video-inner" id="demo-video-inner">
+      <!-- Header -->
+      <div class="demo-modal-header">
+        <div class="lesson-badge" style="background:${hexToRgba(color,0.14)};color:${color};display:inline-flex;align-items:center;border-radius:9px;padding:5px 14px;font-size:11px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase">${escHtml(name)}</div>
+        <button class="demo-video-close" onclick="closeDemoLesson()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
+
+      <!-- Title -->
+      <div class="demo-video-title">${escHtml(lessonTitle)}</div>
+
+      <!-- Video container -->
+      <div class="video-container" id="demo-video-container">
+        <div id="demo-video-slot"></div>
+        <!-- Tap zones (same as main player) -->
+        <div class="tap-zone tap-left"  id="demo-tap-left"  onclick="demoVcSeek(-10)"></div>
+        <div class="tap-zone tap-right" id="demo-tap-right" onclick="demoVcSeek(10)"></div>
+        <!-- Seek flash -->
+        <div id="demo-seek-flash" class="seek-flash"></div>
+        <!-- Theater exit -->
+        <button id="demo-theater-esc" class="theater-esc" onclick="toggleDemoFS()" style="display:none">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="8 3 3 3 3 8"/><polyline points="21 8 21 3 16 3"/><polyline points="3 16 3 21 8 21"/><polyline points="16 21 21 21 21 16"/></svg>
+        </button>
+        <!-- Intercept clicks to YouTube -->
+        <div class="demo-click-guard" id="demo-click-guard"></div>
+      </div>
+
+      <!-- Custom controls (same style as main) -->
+      <div class="custom-vc-bar" id="demo-vc-bar">
+        <button class="vc-btn vc-rew" onclick="demoVcSeek(-10)" title="-10 сек">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.22"/></svg>
+          <span>-10</span>
+        </button>
+        <div class="vc-spacer"></div>
+        <button class="vc-btn vc-fwd" onclick="demoVcSeek(10)" title="+10 сек">
+          <span>+10</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-3.22"/></svg>
+        </button>
+        <div class="vc-divider"></div>
+        <button class="vc-btn vc-fs" onclick="toggleDemoFS()" title="Полноэкранный режим">
+          <svg id="demo-fs-expand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          <svg id="demo-fs-shrink" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none"><polyline points="8 3 3 3 3 8"/><polyline points="21 8 21 3 16 3"/><polyline points="3 16 3 21 8 21"/><polyline points="16 21 21 21 21 16"/></svg>
+        </button>
+      </div>
+
+      <!-- Timer bar -->
       <div class="demo-timer-bar">
         <div class="demo-timer-fill" id="demo-timer-fill" style="width:100%"></div>
       </div>
+
+      <!-- Bottom CTA -->
       <div class="demo-video-limit">
         Демо-версия: <strong id="demo-seconds">30</strong> сек. —
-        <span class="demo-login-link" onclick="closeDemoLesson();$('inp-name').focus()">Войти и смотреть полностью →</span>
+        <span class="demo-login-link" onclick="closeDemoLesson();setTimeout(()=>$('inp-name').focus(),200)">Войти и смотреть полностью →</span>
       </div>
     </div>`;
   document.body.appendChild(overlay);
 
-  // Close on backdrop
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeDemoLesson(); });
+  // Load YouTube via IFrame API if ready, else plain iframe
+  demoIsTheater = false;
+  demoyYtPlayer = null;
+  _loadDemoYt(ytId);
 
   // Start countdown
   demoSecondsLeft = 30;
@@ -581,18 +618,130 @@ function openDemoLesson(idx) {
     demoSecondsLeft--;
     const secEl = $('demo-seconds');
     const fillEl = $('demo-timer-fill');
-    if (secEl) secEl.textContent = demoSecondsLeft;
-    if (fillEl) fillEl.style.width = (demoSecondsLeft / 30 * 100) + '%';
+    if (secEl) secEl.textContent = Math.max(0, demoSecondsLeft);
+    if (fillEl) fillEl.style.width = Math.max(0, demoSecondsLeft / 30 * 100) + '%';
     if (demoSecondsLeft <= 0) {
       clearInterval(demoTimerInterval);
-      closeDemoLesson();
-      showToast('Демо завершено! Войдите для полного доступа.', 'success');
+      demoTimerInterval = null;
+      _showDemoEndBlock();
     }
   }, 1000);
 }
 
+function _loadDemoYt(ytId) {
+  const slot = document.getElementById('demo-video-slot');
+  if (!slot) return;
+
+  if (ytApiReady && typeof YT !== 'undefined' && YT.Player) {
+    // Use IFrame API for seek support
+    const div = document.createElement('div');
+    div.id = 'demo-yt-api-target';
+    slot.appendChild(div);
+    demoyYtPlayer = new YT.Player('demo-yt-api-target', {
+      videoId: ytId,
+      playerVars: { autoplay: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, controls: 0, disablekb: 1 },
+      width: '100%',
+      height: '100%',
+      events: {
+        onReady: e => { try { e.target.playVideo(); } catch(_) {} }
+      }
+    });
+    // Style the iframe once created
+    setTimeout(() => {
+      const iframe = slot.querySelector('iframe');
+      if (iframe) iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;pointer-events:none';
+    }, 800);
+  } else {
+    // Fallback: plain iframe with controls=0
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&controls=0&disablekb=1&iv_load_policy=3&playsinline=1`;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;pointer-events:none';
+    slot.appendChild(iframe);
+  }
+}
+
+function _showDemoEndBlock() {
+  // Pause video
+  if (demoyYtPlayer && typeof demoyYtPlayer.pauseVideo === 'function') {
+    try { demoyYtPlayer.pauseVideo(); } catch(_) {}
+  }
+  // Hide controls
+  const bar = document.getElementById('demo-vc-bar');
+  if (bar) bar.style.display = 'none';
+
+  // Show end overlay inside video container
+  const container = document.getElementById('demo-video-container');
+  if (!container) return;
+  const end = document.createElement('div');
+  end.style.cssText = 'position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(6,6,8,0.92);text-align:center;padding:24px;border-radius:inherit;font-family:"DM Sans",sans-serif';
+  end.innerHTML = `
+    <div style="font-size:42px">🔒</div>
+    <div style="color:#fff;font-size:17px;font-weight:700;line-height:1.4">Войдите для полного<br>просмотра урока</div>
+    <div style="color:#8080a8;font-size:13px;max-width:240px;line-height:1.6">Вы посмотрели демо. Войдите чтобы получить доступ ко всем урокам.</div>
+    <button onclick="closeDemoLesson();setTimeout(()=>$('inp-name').focus(),200)"
+      style="background:linear-gradient(135deg,#f5c842,#e8920a);border:none;border-radius:12px;padding:13px 28px;font-size:14px;font-weight:700;color:#000;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px">
+      Войти в платформу
+    </button>`;
+  container.appendChild(end);
+  // Update timer UI
+  const secEl = $('demo-seconds');
+  if (secEl) secEl.textContent = '0';
+}
+
+function demoVcSeek(delta) {
+  if (demoyYtPlayer && typeof demoyYtPlayer.getCurrentTime === 'function') {
+    try {
+      const cur = demoyYtPlayer.getCurrentTime();
+      demoyYtPlayer.seekTo(Math.max(0, cur + delta), true);
+    } catch(_) {}
+  }
+  // Flash effect
+  const flash = document.getElementById('demo-seek-flash');
+  if (flash) {
+    flash.textContent = delta > 0 ? `+${delta}с` : `${delta}с`;
+    flash.classList.remove('show');
+    void flash.offsetWidth;
+    flash.classList.add('show');
+    setTimeout(() => flash.classList.remove('show'), 600);
+  }
+}
+
+function toggleDemoFS() {
+  const vc  = document.getElementById('demo-video-container');
+  const esc = document.getElementById('demo-theater-esc');
+  const exp = document.getElementById('demo-fs-expand');
+  const shr = document.getElementById('demo-fs-shrink');
+  const inner = document.getElementById('demo-video-inner');
+
+  demoIsTheater = !demoIsTheater;
+  if (demoIsTheater) {
+    vc?.classList.add('theater-mode');
+    document.body.classList.add('video-theater');
+    if (esc) esc.style.display = 'flex';
+    if (exp) exp.style.display = 'none';
+    if (shr) shr.style.display = 'block';
+  } else {
+    vc?.classList.remove('theater-mode');
+    document.body.classList.remove('video-theater');
+    if (esc) esc.style.display = 'none';
+    if (exp) exp.style.display = 'block';
+    if (shr) shr.style.display = 'none';
+  }
+}
+
 function closeDemoLesson() {
   if (demoTimerInterval) { clearInterval(demoTimerInterval); demoTimerInterval = null; }
+  // Destroy YT player
+  if (demoyYtPlayer && typeof demoyYtPlayer.destroy === 'function') {
+    try { demoyYtPlayer.destroy(); } catch(_) {}
+    demoyYtPlayer = null;
+  }
+  // Exit theater if active
+  if (demoIsTheater) {
+    document.body.classList.remove('video-theater');
+    demoIsTheater = false;
+  }
   const ov = $('demo-video-overlay');
   if (ov) ov.remove();
 }
