@@ -1124,8 +1124,7 @@ function closeLesson() {
   // Reset player refs
   if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
   currentVideoEl = null;
-
-  // Clear shorts mode
+  syncPlayPauseIcon(false);
   $('video-container')?.classList.remove('shorts-mode');
 
   // Exit theater mode if active
@@ -1194,17 +1193,32 @@ function addYtCleanOverlay(slot) {
   overlay.addEventListener('touchend', e => { e.preventDefault(); handleTap(e); });
 }
 
+function syncPlayPauseIcon(playing) {
+  const iconPlay  = $('vc-icon-play');
+  const iconPause = $('vc-icon-pause');
+  if (!iconPlay || !iconPause) return;
+  iconPlay.style.display  = playing ? 'none' : '';
+  iconPause.style.display = playing ? '' : 'none';
+}
+
 function toggleYtPlayPause() {
-  if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+  if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') {
+    // iOS: если плеер ещё не готов — кликаем overlay
+    const overlay = document.getElementById('yt-clean-overlay');
+    if (overlay) overlay.click();
+    return;
+  }
   try {
     const state = ytPlayer.getPlayerState();
-    // 1 = playing, 2 = paused, 3 = buffering
+    // 1 = playing, 3 = buffering → pause; else → play
     if (state === 1 || state === 3) {
       ytPlayer.pauseVideo();
       showPlayPauseFlash('⏸');
+      syncPlayPauseIcon(false);
     } else {
       ytPlayer.playVideo();
       showPlayPauseFlash('▶');
+      syncPlayPauseIcon(true);
     }
   } catch(_) {}
 }
@@ -1385,11 +1399,16 @@ function playLesson(courseIdx, lessonAbsIdx) {
               onReady: e => {
                 e.target.playVideo();
                 showCustomControls();
+                syncPlayPauseIcon(true);
                 addYtCleanOverlay(slot);
-                // ── ДЕМО-РЕЖИМ: 30 сек для неавторизованных ──
+                // ── ДЕМО-РЕЖИМ: 60 сек для неавторизованных ──
                 if (!currentUser && isDemoLesson(currentCourseIdx, currentLessonIndex)) {
                   startDemoTimer(60);
                 }
+              },
+              onStateChange: e => {
+                // 1=playing, 3=buffering → show pause icon; else → show play icon
+                syncPlayPauseIcon(e.data === 1 || e.data === 3);
               }
             }
           });
