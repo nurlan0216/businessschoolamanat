@@ -55,6 +55,9 @@ let tgChannelUrl          = '';  // A7 — ссылка на ТГ-канал с 
 // Переменная для хранения фонового интервала проверки блокировки
 let securityCheckInterval = null;
 
+// Demo section state
+let demoTimerInterval  = null;
+
 // ══════════════════════════════ TRANSLATIONS ══════════════════════
 const T = {
   ru: {
