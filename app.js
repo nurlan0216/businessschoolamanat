@@ -463,7 +463,6 @@ function applyLinks() {
 
 // ══════════════════════════════ DEMO SECTION ═════════════════════
 let demoSectionOpen = false;
-let demoTimerInterval = null;
 let demoSecondsLeft = 30;
 
 function toggleDemoSection() {
@@ -881,8 +880,6 @@ function isDemoLesson(courseIdx, lessonAbsIdx) {
   const vl = getVideoLessons(courseIdx);
   return vl.length > 0 && vl[0].absIdx === lessonAbsIdx;
 }
-
-let demoTimerInterval = null;
 
 function startDemoTimer(seconds) {
   if (demoTimerInterval) clearInterval(demoTimerInterval);
