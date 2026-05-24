@@ -1112,6 +1112,7 @@ function closeLesson() {
   // Reset player refs
   if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
   currentVideoEl = null;
+  syncPlayPauseIcon(false);
 
   // Clear shorts mode
   $('video-container')?.classList.remove('shorts-mode');
@@ -1182,17 +1183,37 @@ function addYtCleanOverlay(slot) {
   overlay.addEventListener('touchend', e => { e.preventDefault(); handleTap(e); });
 }
 
+function syncPlayPauseIcon(playing) {
+  const iconPlay  = $('vc-icon-play');
+  const iconPause = $('vc-icon-pause');
+  if (!iconPlay || !iconPause) return;
+  if (playing) {
+    iconPlay.style.display  = 'none';
+    iconPause.style.display = '';
+  } else {
+    iconPlay.style.display  = '';
+    iconPause.style.display = 'none';
+  }
+}
+
 function toggleYtPlayPause() {
-  if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+  if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') {
+    // iOS fallback: if no ytPlayer yet, try to start playback via overlay
+    const overlay = document.getElementById('yt-clean-overlay');
+    if (overlay) overlay.click();
+    return;
+  }
   try {
     const state = ytPlayer.getPlayerState();
-    // 1 = playing, 2 = paused, 3 = buffering
+    // 1 = playing, 3 = buffering → pause; else → play
     if (state === 1 || state === 3) {
       ytPlayer.pauseVideo();
       showPlayPauseFlash('⏸');
+      syncPlayPauseIcon(false);
     } else {
       ytPlayer.playVideo();
       showPlayPauseFlash('▶');
+      syncPlayPauseIcon(true);
     }
   } catch(_) {}
 }
@@ -1373,11 +1394,16 @@ function playLesson(courseIdx, lessonAbsIdx) {
               onReady: e => {
                 e.target.playVideo();
                 showCustomControls();
+                syncPlayPauseIcon(true);
                 addYtCleanOverlay(slot);
                 // ── ДЕМО-РЕЖИМ: 30 сек для неавторизованных ──
                 if (!currentUser && isDemoLesson(currentCourseIdx, currentLessonIndex)) {
                   startDemoTimer(30);
                 }
+              },
+              onStateChange: e => {
+                // YT.PlayerState: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
+                syncPlayPauseIcon(e.data === 1 || e.data === 3);
               }
             }
           });
