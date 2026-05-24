@@ -197,6 +197,7 @@ function setLang(l) {
   }
   renderCoursesGrid();
   updateHeroStats();
+  if (demoSectionOpen) renderDemoCards();
 }
 
 // ══════════════════════════════ APPLY TEXTS ═══════════════════════
@@ -457,9 +458,158 @@ function applyLinks() {
   }
   const tn = $('tg-note');
   if (tn) tn.innerHTML = t('tgNote').replace('__TG__', tgUrl || '#');
+  applyLoginPageReviews();
 }
 
-// ══════════════════════════════ PROGRESS ══════════════════════════
+// ══════════════════════════════ DEMO SECTION ═════════════════════
+let demoSectionOpen = false;
+let demoTimerInterval = null;
+let demoSecondsLeft = 30;
+
+function toggleDemoSection() {
+  demoSectionOpen = !demoSectionOpen;
+  const wrap = $('demo-cards-wrap');
+  const section = $('demo-section');
+  if (!wrap || !section) return;
+
+  if (demoSectionOpen) {
+    wrap.style.display = 'block';
+    section.classList.add('open');
+    renderDemoCards();
+  } else {
+    wrap.style.display = 'none';
+    section.classList.remove('open');
+  }
+}
+
+function renderDemoCards() {
+  const grid = $('demo-cards-grid');
+  if (!grid) return;
+
+  if (!courses || courses.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text3);font-size:13px">
+      ⏳ Курсы загружаются... Подождите немного.
+    </div>`;
+    // Re-try in 1.5s
+    setTimeout(renderDemoCards, 1500);
+    return;
+  }
+
+  grid.innerHTML = courses.map((course, idx) => {
+    const name  = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+    const color = course.hexColor || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+    const initials = name.substring(0, 2).toUpperCase();
+    const iconHtml = course.iconUrl
+      ? `<img src="${course.iconUrl}" alt="${escHtml(name)}" onerror="this.style.display='none';this.parentNode.textContent='${initials}'">`
+      : initials;
+    const lessons = lang === 'kz' ? course.lessonsKZ : course.lessonsRU;
+    const firstVideo = lessons.find(l => l.type === 'video');
+
+    return `<div class="demo-card" style="--demo-accent:${color};--demo-glow:${hexToRgba(color,0.05)}"
+        onclick="openDemoLesson(${idx})">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="demo-card-icon" style="background:linear-gradient(140deg,${color},${darkenHex(color,20)})">${iconHtml}</div>
+        <div>
+          <div class="demo-card-name">${escHtml(name)}</div>
+          <div class="demo-card-meta">${lessons.filter(l=>l.type==='video').length} уроков</div>
+        </div>
+      </div>
+      <div class="demo-card-badge">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Бесплатный урок
+      </div>
+      <div class="demo-card-cta">
+        <span class="demo-cta-label">Смотреть демо</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openDemoLesson(idx) {
+  const course = courses[idx];
+  if (!course) return;
+  const name    = lang === 'kz' ? (course.nameKZ || course.nameRU) : (course.nameRU || course.nameKZ);
+  const lessons = lang === 'kz' ? course.lessonsKZ : course.lessonsRU;
+  const first   = lessons.find(l => l.type === 'video');
+  if (!first || !first.url) {
+    showToast('Демо-урок недоступен для этого курса', 'error');
+    return;
+  }
+
+  const ytId = extractYouTubeId(first.url);
+  if (!ytId) {
+    showToast('Демо-урок недоступен', 'error');
+    return;
+  }
+
+  // Build overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'demo-video-overlay';
+  overlay.id = 'demo-video-overlay';
+  overlay.innerHTML = `
+    <div class="demo-video-inner">
+      <button class="demo-video-close" onclick="closeDemoLesson()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="demo-video-title">🎓 ${escHtml(name)} — ${escHtml(first.name || 'Урок 1')}</div>
+      <div style="position:relative;padding-bottom:56.25%;background:#000;border-radius:12px;overflow:hidden">
+        <iframe id="demo-yt-frame"
+          src="https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&end=30"
+          style="position:absolute;inset:0;width:100%;height:100%;border:none"
+          allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+      <div class="demo-timer-bar">
+        <div class="demo-timer-fill" id="demo-timer-fill" style="width:100%"></div>
+      </div>
+      <div class="demo-video-limit">
+        Демо-версия: <strong id="demo-seconds">30</strong> сек. —
+        <span class="demo-login-link" onclick="closeDemoLesson();$('inp-name').focus()">Войти и смотреть полностью →</span>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Close on backdrop
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeDemoLesson(); });
+
+  // Start countdown
+  demoSecondsLeft = 30;
+  if (demoTimerInterval) clearInterval(demoTimerInterval);
+  demoTimerInterval = setInterval(() => {
+    demoSecondsLeft--;
+    const secEl = $('demo-seconds');
+    const fillEl = $('demo-timer-fill');
+    if (secEl) secEl.textContent = demoSecondsLeft;
+    if (fillEl) fillEl.style.width = (demoSecondsLeft / 30 * 100) + '%';
+    if (demoSecondsLeft <= 0) {
+      clearInterval(demoTimerInterval);
+      closeDemoLesson();
+      showToast('Демо завершено! Войдите для полного доступа.', 'success');
+    }
+  }, 1000);
+}
+
+function closeDemoLesson() {
+  if (demoTimerInterval) { clearInterval(demoTimerInterval); demoTimerInterval = null; }
+  const ov = $('demo-video-overlay');
+  if (ov) ov.remove();
+}
+
+// ── Update reviews section on login page ──────────────────────────
+function applyLoginPageReviews() {
+  // Wire up Telegram channel button if tgChannelUrl is set
+  const btn = $('reviews-channel-btn');
+  if (btn) {
+    if (tgChannelUrl) {
+      btn.href = tgChannelUrl;
+      btn.style.display = 'inline-flex';
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+  const tgLoginLink = $('tg-link-login');
+  if (tgLoginLink && tgUrl) tgLoginLink.href = tgUrl;
+}
 const getWatchKey = (ci, li) => `${ci}-${li}`;
 const isWatched   = (ci, li) => !!watchedLessons[getWatchKey(ci, li)];
 
