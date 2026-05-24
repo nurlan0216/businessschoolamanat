@@ -466,7 +466,7 @@ function applyLinks() {
 
 // ══════════════════════════════ DEMO SECTION ═════════════════════
 let demoSectionOpen = false;
-let demoSecondsLeft = 30;
+let demoSecondsLeft = 60;
 
 function toggleDemoSection() {
   demoSectionOpen = !demoSectionOpen;
@@ -582,6 +582,11 @@ function openDemoLesson(idx) {
           <span>-10</span>
         </button>
         <div class="vc-spacer"></div>
+        <button class="vc-btn vc-play-pause" id="demo-play-pause-btn" onclick="toggleDemoPlayPause()" title="Воспроизвести / Пауза">
+          <svg id="demo-icon-play" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21"/></svg>
+          <svg id="demo-icon-pause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+        </button>
+        <div class="vc-spacer"></div>
         <button class="vc-btn vc-fwd" onclick="demoVcSeek(10)" title="+10 сек">
           <span>+10</span>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-3.22"/></svg>
@@ -600,7 +605,7 @@ function openDemoLesson(idx) {
 
       <!-- Bottom CTA -->
       <div class="demo-video-limit">
-        Демо-версия: <strong id="demo-seconds">30</strong> сек. —
+        Демо-версия: <strong id="demo-seconds">60</strong> сек. —
         <span class="demo-login-link" onclick="closeDemoLesson();setTimeout(()=>$('inp-name').focus(),200)">Войти и смотреть полностью →</span>
       </div>
     </div>`;
@@ -612,14 +617,14 @@ function openDemoLesson(idx) {
   _loadDemoYt(ytId);
 
   // Start countdown
-  demoSecondsLeft = 30;
+  demoSecondsLeft = 60;
   if (demoTimerInterval) clearInterval(demoTimerInterval);
   demoTimerInterval = setInterval(() => {
     demoSecondsLeft--;
     const secEl = $('demo-seconds');
     const fillEl = $('demo-timer-fill');
     if (secEl) secEl.textContent = Math.max(0, demoSecondsLeft);
-    if (fillEl) fillEl.style.width = Math.max(0, demoSecondsLeft / 30 * 100) + '%';
+    if (fillEl) fillEl.style.width = Math.max(0, demoSecondsLeft / 60 * 100) + '%';
     if (demoSecondsLeft <= 0) {
       clearInterval(demoTimerInterval);
       demoTimerInterval = null;
@@ -643,7 +648,7 @@ function _loadDemoYt(ytId) {
       width: '100%',
       height: '100%',
       events: {
-        onReady: e => { try { e.target.playVideo(); } catch(_) {} }
+        onReady: e => { try { e.target.playVideo(); syncDemoPlayPauseIcon(true); } catch(_) {} }
       }
     });
     // Style the iframe once created
@@ -666,27 +671,34 @@ function _showDemoEndBlock() {
   if (demoyYtPlayer && typeof demoyYtPlayer.pauseVideo === 'function') {
     try { demoyYtPlayer.pauseVideo(); } catch(_) {}
   }
-  // Hide controls
-  const bar = document.getElementById('demo-vc-bar');
-  if (bar) bar.style.display = 'none';
+  // Auto-close the demo overlay after a brief pause so user notices it ended
+  setTimeout(() => {
+    closeDemoLesson();
+    // Focus login form so user can log in
+    setTimeout(() => { const inp = $('inp-name'); if (inp) inp.focus(); }, 300);
+  }, 800);
+}
 
-  // Show end overlay inside video container
-  const container = document.getElementById('demo-video-container');
-  if (!container) return;
-  const end = document.createElement('div');
-  end.style.cssText = 'position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(6,6,8,0.92);text-align:center;padding:24px;border-radius:inherit;font-family:"DM Sans",sans-serif';
-  end.innerHTML = `
-    <div style="font-size:42px">🔒</div>
-    <div style="color:#fff;font-size:17px;font-weight:700;line-height:1.4">Войдите для полного<br>просмотра урока</div>
-    <div style="color:#8080a8;font-size:13px;max-width:240px;line-height:1.6">Вы посмотрели демо. Войдите чтобы получить доступ ко всем урокам.</div>
-    <button onclick="closeDemoLesson();setTimeout(()=>$('inp-name').focus(),200)"
-      style="background:linear-gradient(135deg,#f5c842,#e8920a);border:none;border-radius:12px;padding:13px 28px;font-size:14px;font-weight:700;color:#000;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px">
-      Войти в платформу
-    </button>`;
-  container.appendChild(end);
-  // Update timer UI
-  const secEl = $('demo-seconds');
-  if (secEl) secEl.textContent = '0';
+function syncDemoPlayPauseIcon(playing) {
+  const iconPlay  = document.getElementById('demo-icon-play');
+  const iconPause = document.getElementById('demo-icon-pause');
+  if (!iconPlay || !iconPause) return;
+  iconPlay.style.display  = playing ? 'none' : '';
+  iconPause.style.display = playing ? '' : 'none';
+}
+
+function toggleDemoPlayPause() {
+  if (!demoyYtPlayer || typeof demoyYtPlayer.getPlayerState !== 'function') return;
+  try {
+    const state = demoyYtPlayer.getPlayerState();
+    if (state === 1 || state === 3) {
+      demoyYtPlayer.pauseVideo();
+      syncDemoPlayPauseIcon(false);
+    } else {
+      demoyYtPlayer.playVideo();
+      syncDemoPlayPauseIcon(true);
+    }
+  } catch(_) {}
 }
 
 function demoVcSeek(delta) {
@@ -1112,7 +1124,6 @@ function closeLesson() {
   // Reset player refs
   if (ytPlayer) { try { ytPlayer.destroy(); } catch(_) {} ytPlayer = null; }
   currentVideoEl = null;
-  syncPlayPauseIcon(false);
 
   // Clear shorts mode
   $('video-container')?.classList.remove('shorts-mode');
@@ -1183,37 +1194,17 @@ function addYtCleanOverlay(slot) {
   overlay.addEventListener('touchend', e => { e.preventDefault(); handleTap(e); });
 }
 
-function syncPlayPauseIcon(playing) {
-  const iconPlay  = $('vc-icon-play');
-  const iconPause = $('vc-icon-pause');
-  if (!iconPlay || !iconPause) return;
-  if (playing) {
-    iconPlay.style.display  = 'none';
-    iconPause.style.display = '';
-  } else {
-    iconPlay.style.display  = '';
-    iconPause.style.display = 'none';
-  }
-}
-
 function toggleYtPlayPause() {
-  if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') {
-    // iOS fallback: if no ytPlayer yet, try to start playback via overlay
-    const overlay = document.getElementById('yt-clean-overlay');
-    if (overlay) overlay.click();
-    return;
-  }
+  if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
   try {
     const state = ytPlayer.getPlayerState();
-    // 1 = playing, 3 = buffering → pause; else → play
+    // 1 = playing, 2 = paused, 3 = buffering
     if (state === 1 || state === 3) {
       ytPlayer.pauseVideo();
       showPlayPauseFlash('⏸');
-      syncPlayPauseIcon(false);
     } else {
       ytPlayer.playVideo();
       showPlayPauseFlash('▶');
-      syncPlayPauseIcon(true);
     }
   } catch(_) {}
 }
@@ -1394,16 +1385,11 @@ function playLesson(courseIdx, lessonAbsIdx) {
               onReady: e => {
                 e.target.playVideo();
                 showCustomControls();
-                syncPlayPauseIcon(true);
                 addYtCleanOverlay(slot);
                 // ── ДЕМО-РЕЖИМ: 30 сек для неавторизованных ──
                 if (!currentUser && isDemoLesson(currentCourseIdx, currentLessonIndex)) {
-                  startDemoTimer(30);
+                  startDemoTimer(60);
                 }
-              },
-              onStateChange: e => {
-                // YT.PlayerState: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
-                syncPlayPauseIcon(e.data === 1 || e.data === 3);
               }
             }
           });
