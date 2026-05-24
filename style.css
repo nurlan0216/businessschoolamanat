@@ -316,7 +316,7 @@ body.cursor-active * { cursor: none !important; }
   padding: calc(var(--header-h) + 28px) 20px 80px;
   position: relative;
 }
-.login-scene { position: relative; z-index: 1; width: 100%; max-width: 560px; }
+.login-scene { position: relative; z-index: 1; width: 100%; max-width: 560px; min-height: 200px; }
 
 /* Floating deco cards */
 .login-deco { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
@@ -1247,6 +1247,7 @@ body.cursor-active * { cursor: none !important; }
   display: none;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
 }
 
 /* ── 2. Field without icon ─────────────────────────────────────────── */
@@ -1647,7 +1648,7 @@ body.video-theater #theater-esc {
   gap: 14px;
 }
 .review-card {
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px;
@@ -1672,7 +1673,7 @@ body.video-theater #theater-esc {
   margin: 0;
   flex: 1;
 }
-.review-author {
+.review-author, .review-top {
   display: flex;
   align-items: center;
   gap: 10px;
