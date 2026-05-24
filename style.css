@@ -1488,6 +1488,22 @@ body.cursor-active * { cursor: none !important; }
   color: var(--gold);
 }
 
+/* ── Play/Pause centre button ── */
+.vc-play-pause {
+  padding: 8px 18px;
+  min-width: 52px;
+  justify-content: center;
+  background: rgba(245,200,66,0.14);
+  border-color: rgba(245,200,66,0.4);
+  color: var(--gold);
+}
+.vc-play-pause:hover {
+  background: rgba(245,200,66,0.26);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.vc-play-pause svg { flex-shrink: 0; }
+
 /* ── Seek flash indicator ── */
 .seek-flash {
   position: absolute;
