@@ -1922,3 +1922,55 @@ body.video-theater #theater-esc {
 @media (max-width: 400px) {
   .demo-cards-grid { grid-template-columns: 1fr; }
 }
+
+/* ══ Demo player custom controls ══════════════════════════════════ */
+.demo-video-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.demo-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.demo-video-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+/* demo-video-container uses same .video-container styles */
+#demo-video-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#demo-video-slot {
+  position: absolute;
+  inset: 0;
+}
+#demo-video-slot iframe,
+#demo-video-slot > div {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+/* Transparent guard that blocks clicks from reaching YouTube iframe */
+.demo-click-guard {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  cursor: default;
+}
+#demo-vc-bar {
+  margin-top: 8px;
+}
